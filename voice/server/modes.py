@@ -7,9 +7,15 @@ stream edileceği modeli & token bütçesini seçer.
 from typing import Tuple
 
 try:
-    from agentv2.model_routing import KONU_MODELLERI, DEFAULT_MODEL, DEFAULT_MAX
+    from agentv2.model_routing import (
+        KONU_MODELLERI, DEFAULT_MODEL, DEFAULT_MAX,
+        hizli_model_sec,
+    )
 except Exception:
     KONU_MODELLERI, DEFAULT_MODEL, DEFAULT_MAX = {}, "dots-studio/dots-3-note-preview:free", 32768
+
+    def hizli_model_sec(soru: str) -> Tuple[str, int]:
+        return "nvidia/nemotron-3-ultra-550b-a55b:free", 4096
 
 # Sesli sohbet için konu tespiti (ajan gamında hafif regex; "dil" başta).
 KONU_IZLERI = [
@@ -37,7 +43,15 @@ def konu_bul(soru: str) -> str:
 
 
 def model_sec(soru: str) -> Tuple[str, int]:
-    """Konuya göre (model, max_tokens) döndürür — model_routing haritasından."""
+    """Konuya göre (model, max_tokens) döndürür — model_routing haritasından.
+
+    Kısa/sohbet meseleleri („8x8“, „ismin ne“) direkt hızlı modele düşer;
+    uzun/bilgi isteyen sorular konu haritasından yavaş-ama-kapsamlı modeli alır.
+    """
+    hizli = hizli_model_sec(soru)
+    if hizli:
+        # Kısa mesele: hızlı model + küçük bütçe (hemen cevap)
+        return hizli
     konu = konu_bul(soru)
     if KONU_MODELLERI and konu in KONU_MODELLERI:
         model, maxt, _ = KONU_MODELLERI[konu]
@@ -71,7 +85,8 @@ def ses_prompt_kisa() -> str:
     liste-ağırlıksız bir anlatım ister (derin_rapor/metin moduna dokunmaz).
     """
     return (
-        "Sen ZenAI'sin, Türkçe konuşan bir asistan. Şu an biriyle sesli konuşuyorsun.\n"
+        "Sen ZenAI'sin, Türkçe konuşan bir asistan. Şu an biriyle sesli konuşuyorsun. "
+        "Claude, Gemini, ChatGPT veya GPT DEĞİLSİN; adın sorulursa 'ZenAI' de.\n"
         "Yanıtların doğal ve açık olmalı, kulağa robotik gelmemeli. "
         "Liste ve uzun başlık dizileri yerine akıcı, kısa cümlelerle — "
         "tıpkı bir asistanın konuştuğu gibi — anlat. "

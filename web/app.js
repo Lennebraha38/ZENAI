@@ -883,7 +883,8 @@ function sorudakiUrl(s) {
 // ── Ana gönderim akışı ────────────────────────────────
 async function sistemPromptu(konu, soyut) {
   const parcalar = [
-    "Sen ZenAI'sin — Türkçe bir asistan. Doğrudan, net ve özlü cevap ver.",
+    "Sen ZenAI'sin — Türkçe bir asistan. Claude, Gemini, ChatGPT veya GPT değilsin; adın sorulursa 'ZenAI' de.",
+    "Doğrudan, net ve özlü cevap ver.",
     "KALİTE + UZUNLUK KURALI: Önce tek cümlelik doğrudan cevap. Sonra gerekirse 3-5 kısa madde veya kısa adım akışı. Cevabın uzunluğunu sorunun kapsamına göre ayarla — kullanıcı detay istedadı özet ver, irade yoksa net ve bitmiş ver. Bol tekrar, giriş/bitiş süsü, gereksiz başlık yığını yapma. Çoğu soru 100-250 kelimeyle biter; 400 kelimeyi aşma.",
   ];
   const pill = promptPillAktif();
@@ -1000,7 +1001,7 @@ async function gonder() {
     // Tek / Akıl Motoru
     const aktifSkillerBu = aktifSkilller.map((i) => skills[i]).filter(Boolean);
     const wrap = mesajEkle("user", tamSoru);
-    const [model, mt] = konuModel(modelSecili(), konu);
+    const [model, mt] = konuModel(modelSecili(), konu, tamSoru);
     const sistemi = await sistemPromptu(konu, soyut);
     const mesajlar = [
       { role: "system", content: sistemi },
@@ -1152,8 +1153,13 @@ async function meclisTuru(soru, key) {
 }
 
 // ── Model seçimi ──────────────────────────────────────
-function konuModel(secili, konu) {
+function konuModel(secili, konu, soru) {
   const sinir = (m) => [m[0], Math.min(m[1], 16384)];
+  const hizli = ["nvidia/nemotron-3-ultra-550b-a55b:free", 4096];
+  // Kısa/sohbet meseleleri („8x8“, „ismin ne“): anında cevap için hızlı model.
+  const sonSoru = (soru != null ? String(soru) : (gecmis.length ? gecmis[gecmis.length - 1]?.icerik : "") || "").trim();
+  const kisaMi = sonSoru && (sonSoru.split(/\s+/).length <= 7 || /^[0-9xX*/=+\-., ]+$/.test(sonSoru));
+  if (kisaMi && secili === "auto") return hizli;
   // Otomatik: konu yönlendirme aktifse konuya göre, değilse varsayılan model.
   if (secili === "auto") {
     if ($("swRoute") && $("swRoute").checked && KONU_MODELLERI[konu]) return sinir(KONU_MODELLERI[konu]);

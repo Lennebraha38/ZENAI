@@ -7,6 +7,7 @@ Token limitlerini yüksek tut (Claude 128K'dan 2x-4x daha fazla çıktı).
 Kod modülü: free tier ağırlıklı; önceki deepseek hesabı (bakiye sona erdi) → free kod uzmanına geri dönüldü.
 """
 import os
+import re
 
 # ── Merkezi API ayarlari ───────────────────────────────────────────────
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
@@ -59,18 +60,35 @@ KONU_MODELLERI = {
         16000,  # 1.5x — pratik ama yeterli
         "Pratik bilgi: uygulanabilir, kısa ama tam"
     ),
-    "teknoloji": (
+"teknoloji": (
         "dots-studio/dots-3-note-preview:free",
         48000,  # 3x — teknik derinlik için
         "Teknoloji: derin analitik, teknik terim + örnek"
     ),
 }
 
+# Kısa/sohbet soruları için HIZLI model (ilk token çok kısa sürede gelir).
+# "8x8" gibi tek satır meseleler 460K'lık yavaş model yerine buraya düşer.
+HIZLI_MODEL = "nvidia/nemotron-3-ultra-550b-a55b:free"
+HIZLI_MAX = 4096
+
 DEFAULT_MODEL = "dots-studio/dots-3-note-preview:free"
 DEFAULT_MAX = 32768
 
+def hizli_model_sec(soru: str) -> Optional[Tuple[str, int]]:
+    """Çok kısa/sohbet sorularında anında cevap için hızlı model + küçük bütçe;
+    kısa değilse None (çağıran konu haritasına düşer)."""
+    s = (soru or "").strip()
+    if not s:
+        return HIZLI_MODEL, HIZLI_MAX
+    kelime = len(s.split())
+    # Tek satır meseleler (soru < 7 kelime) ve saf hesaplama→ hızlı model.
+    if kelime <= 7 or re.search(r'^[0-9xX*/=+\-., ]+$', s):
+        return HIZLI_MODEL, HIZLI_MAX
+    return None
+
 def model_sec(konu: str) -> Tuple[str, int]:
-    """Konuya gore model ve max_tokens dondur."""
+    """Konuya gore model ve max_tokens dondurur."""
     model, maxt, _ = KONU_MODELLERI.get(konu, (DEFAULT_MODEL, DEFAULT_MAX, "Varsayilan"))
     return model, maxt
 

@@ -310,7 +310,7 @@
       durum.uygula({ yerel: 'pta-son' });
       setDurum();
       try {
-        await akisPost(gateway + '/v1/chat/completions', {
+        await akisPost(gateway, {
           model: 'chat', stream: true,
           messages: [{ role: 'user', content: soru }],
         }, function (olay) {
@@ -352,8 +352,18 @@
        * Lokal: http://127.0.0.1:8787 gibi tam adres girilir. */
       const ayniOrigin = location.origin.startsWith('http') &&
         !girilen && location.pathname.indexOf('/voice/hud') >= 0;
-      gateway = girilen ||
-        (ayniOrigin ? location.origin + '/api/voice/completions' : 'http://127.0.0.1:8787');
+      let uc;
+      if (ayniOrigin) {
+        uc = location.origin + '/api/voice/completions';  // Vercel: Python SSE fonksiyonu
+      } else if (girilen) {
+        uc = girilen;
+        if (uc.indexOf('/v1/') < 0 && /^https?:\/\/(127\.0\.0\.1|localhost)/.test(uc)) {
+          uc = uc.replace(/\/$/, '') + '/v1/chat/completions';
+        }
+      } else {
+        uc = 'http://127.0.0.1:8787/v1/chat/completions';
+      }
+      gateway = uc;
       wsUrl = ($('cfg-ws').value || '').trim();
       durum.sus();
       setDurum();

@@ -99,7 +99,9 @@ def ajan(soru: str) -> str:
           "[SISTEM]bakis[/SISTEM] sistem bilgisi, [GITHUB]sorgu[/GITHUB] github ara, "
           "[SIFRE]uzunluk[/SIFRE] sifre uret, [RSS]kategori[/RSS] haber, "
           "[LISTE]klasor,kalip[/LISTE] dosya listeler, "
-          "[TARAYICI]ac,url[/TARAYICI] site acar, [GORUN]dosya.png[/GORUN] goruntu analiz eder."
+          "[TARAYICI]ac,url[/TARAYICI] site acar, [GORUN]dosya.png[/GORUN] goruntu analiz eder. "
+          "GEREKSIZSE ARAÇ KULLANMA: bilgi, tanim, hesaplama, ad, kimlik, genel sohbet gibi "
+          "dogrudan cevaplanabilen sorularda araç çağırmadan aninda cevap ver."
         },
         {"role": "user", "content": soru}]
     dogrulandi = False
@@ -117,8 +119,9 @@ def ajan(soru: str) -> str:
         if not (aramalar or siteler or komutlar or digerler):
             if len(cevap) > 3000:
                 belleklik.ozet_ata(llm, cevap, "yanit_" + re.sub(r"[^a-z0-9]", "_", soru.lower())[:40])
-            # Self-verification: kalite dusukse bir tur daha
-            if not dogrulandi:
+            # Self-verification: yalniz uzun/iddiali cevaplarda; kisa meselede aninda dondur.
+            kisa = len(soru.split()) <= 7
+            if not dogrulandi and not kisa:
                 skor = birim_mantik_skoru(cevap)
                 if skor < 0.4:
                     dogrulandi = True
@@ -140,9 +143,9 @@ def ajan(soru: str) -> str:
             if router_sonucu:
                 sonuclar.append(router_sonucu)
         if not sonuclar:
-            # Cevap hazir, ama bir dogrulama turu daha (maks 1 kez)
+            # Cevap hazir, ama bir dogrulama turu daha (maks 1 kez) — kisa mesele pas geciyor.
             skor = birim_mantik_skoru(cevap)
-            if skor < 0.5 and tur == 0:
+            if skor < 0.5 and tur == 0 and len(soru.split()) > 7:
                 mesajlar += [{"role": "assistant", "content": cevap},
                              {"role": "user", "content": (
                                  "Kendi cevabini kontrol et: mantik hata mi, eksik mi var? "

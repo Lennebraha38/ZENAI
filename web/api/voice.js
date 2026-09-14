@@ -108,16 +108,20 @@ export default async function handler(req, res) {
 
   const mod = ["ajan", "rapor"].includes(String(model).toLowerCase())
     ? String(model).toLowerCase() : "chat";
-  const konu = konu_sec(soru);
-  const or_model = MODELLER[konu] || VARSAYILAN;
+  const kisaMi = soru && (soru.trim().split(/\s+/).length <= 7
+    || /^[0-9xX*/=+\-., ]+$/.test(soru.trim()));
+  const konu = kisaMi ? "hizli" : konu_sec(soru);
+  const or_model = kisaMi
+    ? "nvidia/nemotron-3-ultra-550b-a55b:free"
+    : (MODELLER[konu] || VARSAYILAN);
   const mt = Math.min(Number(max_tokens) || 8192, MAKS_TOKEN);
 
   // Sesli sistem promptu: kisa, konuşulabilir (web/app.js KONU_YONTEM uyumlu ton)
-  const sistem = "Sen ZenAI'sin — Türkçe sesli asistan. Cevaplarin KISA (2-4 cümle) ve konuşulabilir olsun; listeye/maddeye bölme. Net, sıcak ve doğal konuş.";
+  const sistem = "Sen ZenAI'sin — Türkçe sesli asistan. Claude, Gemini veya ChatGPT değilsin; adın sorulursa 'ZenAI' de. Cevaplarin KISA (2-4 cümle) ve konuşulabilir olsun; listeye/maddeye bölme. Net, sıcak ve doğal konuş.";
   const govde = {
     model: or_model,
     messages: [{ role: "system", content: sistem }, ...messages.slice(-6)],
-    max_tokens: Math.min(mt, 2048),
+    max_tokens: Math.min(mt, 1024),
     temperature: 0.7,
     stream: true,
   };

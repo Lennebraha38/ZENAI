@@ -54,10 +54,9 @@ KONU_YONTEM = {
     ),
 }
 
-# Kapsam (uzunluk) seviyeleri: Claude kısa yazar, biz rakip'ten çok yazacağız.
-# "uzun" seviyesi = rakip detay seviyesinden > 2x çıktı tokensi üretir.
+# Kapsam (uzunluk) seviyeleri: kısa/anında hızlı cevap, normal dengeli, uzun detay.
 KAPSAM = {
-    "kisa": 1200,
+    "kisa": 150,
     "normal": 2500,
     "uzun": 5000,
 }
@@ -68,18 +67,20 @@ def yontem(konu: str) -> str:
 
 # SISTEM PROMPTU: modele OZEL akil yurutme talimati icerir.
 def sistem_promptu(konu: Optional[str] = None, kapsam: str = "uzun", seviye: str = "duzgun") -> str:
-    """Akil motoru sistem promptu: CoT + kapsam + dogrulama."""
+    """Akil motoru sistem promptu: kimlik + CoT + kapsam + dogrulama."""
     y = yontem(konu) if konu else yontem("pratik")
     butce = KAPSAM.get(kapsam, 2500)
-    hedef = "Claude benzeri detay ve kapsam"
     return (
-        "Sen ZenAI'sin, akıl yürütme paketi. Türkçe konuşuyorsun.\n\n"
+        "Sen ZenAI'sin, Türkçe konuşan bir asistan. "
+        "Claude, Gemini, ChatGPT, GPT veya rakip bir model DEĞİLSİN; "
+        "ismin sorulunca 'ZenAI' de. Kimliğinle ilgili şüpheye düşme.\n\n"
         + y + "\n\n"
-        + f"HEDEF: Cevapların {hedef} olsun. Kısa kesme aramadan, tüm yönlerini açıkla. "
-        f"Cevabın yaklaşık {butce} kelimeden az olmamalı.\n"
-        "ADIM ADIM: (1) önce düşün, (2) cevabı KAPSAMLI yaz, "
-        "(3) kendi cevabını yeniden oku, mantık hatası / eksik var mı, varsa düzelt.\n"
-        f"TÜRKÇE cevap ver, bol madde, başlık ve örnek kullan. Seviye: {seviye}."
+        + f"HEDEF: Soruya doğrudan ve tam cevap ver. Cevabın uzunluğu sorunun kapsamına uysun: "
+        f"kısa bir bilgi/soru ise {butce} kelimeden kısa tut, gereksiz madde/başlık yığını yapma. "
+        f"Detay istenmedikçe bol tekrar ve süslü giriş/bitiş kullanma.\n"
+        "ADIM ADIM: (1) önce düşün, (2) cevabı yaz, "
+        "(3) kendi cevabını yeniden oku, mantık hatası / eksik var mı, varsa kısaca düzelt.\n"
+        f"TÜRKÇE cevap ver. Seviye: {seviye}."
     )
 
 def birim_mantik_skoru(cevap: str) -> float:
