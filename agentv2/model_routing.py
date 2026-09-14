@@ -69,8 +69,13 @@ KONU_MODELLERI = {
 
 # Kısa/sohbet soruları için HIZLI model (ilk token çok kısa sürede gelir).
 # "8x8" gibi tek satır meseleler 460K'lık yavaş model yerine buraya düşer.
-HIZLI_MODEL = "nvidia/nemotron-3-ultra-550b-a55b:free"
+HIZLI_MODEL = "nex-agi/nex-n2.5-mini:free"
 HIZLI_MAX = 4096
+# HIZLI_MODEL yavaş/hatalıysa denenecek yedek hızlı modeller (5 sn hedefi).
+HIZLI_YEDEKLER = [
+    "liquid/lfm-2.5-2.6b:free",
+    "cohere/north-mini-code:free",
+]
 
 DEFAULT_MODEL = "dots-studio/dots-3-note-preview:free"
 DEFAULT_MAX = 32768

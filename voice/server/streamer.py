@@ -33,9 +33,21 @@ except ImportError:  # düz klasör çalıştırması (voiceden bağımsız)
     from onbellek import onbel_istek, onbel_kaydet
 
 from .modes import mod_tanima, model_sec, ses_prompt_kisa
+try:
+    from agentv2.model_routing import HIZLI_MODEL, HIZLI_YEDEKLER
+except Exception:
+    HIZLI_MODEL, HIZLI_YEDEKLER = "nex-agi/nex-n2.5-mini:free", []
 
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434/v1/chat/completions")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.1")
+
+def _hizli_zinciri(birincil: str) -> List[str]:
+    """Birincil model + hızlı yedeklerin sıralı zinciri (5 sn hedefi)."""
+    zincir = []
+    for m in [birincil] + list(HIZLI_YEDEKLER):
+        if m not in zincir:
+            zincir.append(m)
+    return zincir
 
 FazCagiri = Callable[[str, str, str], None]
 DeltaCagiri = Callable[[str, str], None]
@@ -68,7 +80,8 @@ def kirpil(metin: str, boyut: int = 180) -> List[str]:
 def _akista_cek(mesajlar: Sequence[dict], model: str, max_tokens: int) -> Generator[str, None, None]:
     """OpenRouter /chat/completions'ı akışlı okur; her tokenı üretir.
 
-    Başarısızlıkta ``StreamHatasi`` fırlatır → sarmalama fallback'e düşer.
+    Başarısızlıkta (5 sn'de ilk token gelmezse / HTTP hatasında) ``StreamHatasi``
+    fırlatır → sarmalama hızlı model yedeğine düşer.
     """
     import json as J
     import requests
@@ -76,15 +89,19 @@ def _akista_cek(mesajlar: Sequence[dict], model: str, max_tokens: int) -> Genera
     anahtar = os.environ.get("OPENROUTER_KEY") or zz.OPENROUTER_KEY
     if not anahtar:
         raise StreamHatasi("OPENROUTER_KEY yok")
-    r = requests.post(
-        zz.OPENROUTER_URL,
-        json={"model": model, "messages": list(mesajlar), "temperature": 0.7,
-              "max_tokens": max_tokens, "stream": True},
-        headers={"Authorization": f"Bearer {anahtar}"},
-        timeout=600,
-    )
+    try:
+        r = requests.post(
+            zz.OPENROUTER_URL,
+            json={"model": model, "messages": list(mesajlar), "temperature": 0.7,
+                  "max_tokens": max_tokens, "stream": True},
+            headers={"Authorization": f"Bearer {anahtar}"},
+            timeout=8,  # ilk bağlantı + başlık: 8 sn üstü limit
+        )
+    except Exception:
+        raise StreamHatasi("ilk yanit 8 sn'yi asti") from None
     if r.status_code != 200:
         raise StreamHatasi(f"OpenRouter {r.status_code}")
+    ilk_token = time.monotonic()
     for satir in r.iter_lines(decode_unicode=True):
         if not satir or not satir.startswith("data:"):
             continue
@@ -96,6 +113,9 @@ def _akista_cek(mesajlar: Sequence[dict], model: str, max_tokens: int) -> Genera
         except Exception:
             continue
         if delta:
+            # İlk token 8 sn'den geç gelirse: model sıkıştı, yedeğe geç.
+            if time.monotonic() - ilk_token > 8:
+                raise StreamHatasi("ilk token 8 sn sonra geldi (model sikisti)")
             yield delta
 
 
@@ -126,12 +146,15 @@ def chat_stream(soru: str,
                 saglayici: Optional[Callable[..., Generator[str, None, None]]] = None,
                 konusma: bool = True) -> str:
     """Konuya yönlendirilmiş, akışlı, araçsız sesli sohbet cevabı üretir."""
-    isabet = onbel_istek(soru, 0.85)
-    if isabet:
-        on_faz("hazir", "bellek", "önbellek")
-        for parca in kirpil(isabet):
-            on_delta("answer", parca)
-        return isabet
+    # Kısa meselelerde önbellek atlanır: hızlı model zaten ucuz, yanlış
+    # eşleşme ("8x8" vs "8+8") yerine doğru anlık cevap daha iyi.
+    if len((soru or "").split()) > 7:
+        isabet = onbel_istek(soru, 0.85)
+        if isabet:
+            on_faz("hazir", "bellek", "önbellek")
+            for parca in kirpil(isabet):
+                on_delta("answer", parca)
+            return isabet
 
     on_faz("hazirlaniyor", "dusunuyor", "konu analizi")
     model, maxt = model_sec(soru)
@@ -142,24 +165,41 @@ def chat_stream(soru: str,
 
     on_faz("dusunuyor", "dusunuyor", model)
     uretec = (saglayici or _akista_cek)
-    try:
-        parcalar: List[str] = []
-        akis = uretec(mesajlar, model, min(int(maxt), 16384))
-        on_faz("yanit", "konusuyor", "")
-        for token in akis:
-            parcalar.append(token)
-            on_delta("answer", token)
-        yanit = "".join(parcalar).strip()
-    except Exception:
-        yanit = (_duz_cevap(mesajlar, model, min(int(maxt), 16384)) or "Cevap üretilemedi.").strip()
-        if yanit and yanit != "Cevap üretilemedi.":
-            on_faz("yanit", "konusuyor", "fallback")
-            for parca in kirpil(yanit):
-                on_delta("answer", parca)
-        else:
-            on_delta("answer", yanit)
 
-    if len(yanit) > 10:
+    # 5 sn hedefi: hızlı model sıkışırsa (StreamHatasi/8 sn aşımı) yedek hızlı
+    # modele geç; son yedekte de olmazsa düz (akışsız) fallback.
+    adaylar = _hizli_zinciri(model)
+    parcalar: List[str] = []
+    yanit = ""
+    for idx, aday in enumerate(adaylar):
+        try:
+            parcalar = []
+            akis = uretec(mesajlar, aday, min(int(maxt), 16384))
+            on_faz("yanit", "konusuyor", aday.split("/")[0] if len(aday.split("/")) > 1 else aday)
+            for token in akis:
+                parcalar.append(token)
+                on_delta("answer", token)
+            yanit = "".join(parcalar).strip()
+            break  # başarılı: akış bitti
+        except StreamHatasi:
+            if idx + 1 < len(adaylar):
+                on_faz("yedek", "hizli", adaylar[idx + 1])  # sıkışan model, yedeğe geç
+                continue
+            yanit = (_duz_cevap(mesajlar, aday, min(int(maxt), 16384)) or "Cevap üretilemedi.").strip()
+            if yanit and yanit != "Cevap üretilemedi.":
+                on_faz("yanit", "konusuyor", "fallback")
+                for parca in kirpil(yanit):
+                    on_delta("answer", parca)
+            else:
+                on_delta("answer", yanit)
+        except Exception as e:  # ağ/sınıf hatası: asla düşme, fallback
+            if idx + 1 < len(adaylar):
+                continue
+            yanit = "Cevap üretilemedi."
+    if not yanit and not parcalar:
+        yanit = "Cevap üretilemedi."
+
+    if len(yanit) > 10 and len((soru or "").split()) > 7:
         try:
             onbel_kaydet(soru, yanit)
         except Exception:

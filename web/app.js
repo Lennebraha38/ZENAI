@@ -1155,7 +1155,7 @@ async function meclisTuru(soru, key) {
 // ── Model seçimi ──────────────────────────────────────
 function konuModel(secili, konu, soru) {
   const sinir = (m) => [m[0], Math.min(m[1], 16384)];
-  const hizli = ["nvidia/nemotron-3-ultra-550b-a55b:free", 4096];
+  const hizli = ["nex-agi/nex-n2.5-mini:free", 1024];
   // Kısa/sohbet meseleleri („8x8“, „ismin ne“): anında cevap için hızlı model.
   const sonSoru = (soru != null ? String(soru) : (gecmis.length ? gecmis[gecmis.length - 1]?.icerik : "") || "").trim();
   const kisaMi = sonSoru && (sonSoru.split(/\s+/).length <= 7 || /^[0-9xX*/=+\-., ]+$/.test(sonSoru));
