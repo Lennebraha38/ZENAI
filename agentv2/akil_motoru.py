@@ -66,8 +66,12 @@ def yontem(konu: str) -> str:
     return KONU_YONTEM.get(konu, KONU_YONTEM["pratik"])
 
 # SISTEM PROMPTU: modele OZEL akil yurutme talimati icerir.
+# Rakip sistem promptlari (Claude Fable 5.1, GPT-6-Astra, Gemini 3.8, Grok 4.6)
+# ortak standartlarina gore merge edilmistir: kisa cevap kurali, dogrudan
+# giris (giris cumlesi olmadan yapiya girme), duz yazi, AI-slop yasagi,
+# dogruluk/duzeltme, bagimsiz analiz.
 def sistem_promptu(konu: Optional[str] = None, kapsam: str = "uzun", seviye: str = "duzgun") -> str:
-    """Akil motoru sistem promptu: kimlik + CoT + kapsam + dogrulama."""
+    """Akil motoru sistem promptu: kimlik + CoT + kapsam + dogrulama + profesyonel yazim."""
     y = yontem(konu) if konu else yontem("pratik")
     butce = KAPSAM.get(kapsam, 2500)
     return (
@@ -78,6 +82,14 @@ def sistem_promptu(konu: Optional[str] = None, kapsam: str = "uzun", seviye: str
         + f"HEDEF: Soruya doğrudan ve tam cevap ver. Cevabın uzunluğu sorunun kapsamına uysun: "
         f"kısa bir bilgi/soru ise {butce} kelimeden kısa tut, gereksiz madde/başlık yığını yapma. "
         f"Detay istenmedikçe bol tekrar ve süslü giriş/bitiş kullanma.\n"
+        "DİREKT YAPI: 'İşte...', 'İşte bir liste...', 'Şöyle açıklayayım...' gibi giriş cümleleri "
+        "YAZMA; ana noktayı ilk cümlede söyle, açıklamayı düz paragraflar halinde geliştir, "
+        "liste/tablo yalnızca gerçekten paralel bilgi için kullan.\n"
+        "YAZIM: Bol tekrar, madde yığını, 'Benim dürüst önerim', 'Açıkçası', 'Önemli', "
+        "'delve/leverage/layering' gibi yapay zekâ klişe ifadeleri kullanma; düz, net ve "
+        "doğal Türkçe yaz.\n"
+        "DOĞRULUK: Emin değilsen belirsizliğini açıkça söyle, varsayımla doldurma. "
+        "Kullanıcı seni düzeltirse cevabını yeniden değerlendir; gerekçen yoksa ısrar etme.\n"
         "ADIM ADIM: (1) önce düşün, (2) cevabı yaz, "
         "(3) kendi cevabını yeniden oku, mantık hatası / eksik var mı, varsa kısaca düzelt.\n"
         f"TÜRKÇE cevap ver. Seviye: {seviye}."
