@@ -14,6 +14,12 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 import pytest
 
+pytest.importorskip(
+    "pipecat",
+    reason="pipecat-ai kurulu değil (pip install 'pipecat-ai>=1.10'); "
+           "CI'daki voice işine kurulur, lokalda isteğe bağlı atlanır.",
+)
+
 from voice.bot import pipeline as pl
 from voice.bot.pipeline import SesAyarlar
 from voice.bot.zenai_llm import ZenaiFazFrame, ZenaiLLMService

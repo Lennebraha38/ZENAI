@@ -12,15 +12,15 @@ const MAKS_MESAJ = 60000;
 const ALAN_BASINA = 30;
 
 const MODELLER = {
-  kod: "cohere/north-mini-code:free",
+  kod:       "cohere/north-mini-code:free",
   matematik: "nvidia/nemotron-3-ultra-550b-a55b:free",
-  mantik: "nvidia/nemotron-3-ultra-550b-a55b:free",
-  bilim: "dots-studio/dots-3-note-preview:free",
-  tarih: "dots-studio/dots-3-note-preview:free",
-  dil: "dots-studio/dots-3-note-preview:free",
-  yaratici: "dots-studio/dots-3-note-preview:free",
-  kultur: "dots-studio/dots-3-note-preview:free",
-  pratik: "dots-studio/dots-3-note-preview:free",
+  mantik:    "nvidia/nemotron-3-ultra-550b-a55b:free",
+  bilim:     "dots-studio/dots-3-note-preview:free",
+  tarih:     "dots-studio/dots-3-note-preview:free",
+  dil:       "dots-studio/dots-3-note-preview:free",
+  yaratici:  "dots-studio/dots-3-note-preview:free",
+  kultur:    "dots-studio/dots-3-note-preview:free",
+  pratik:    "dots-studio/dots-3-note-preview:free",
   teknoloji: "dots-studio/dots-3-note-preview:free",
 };
 const VARSAYILAN = "dots-studio/dots-3-note-preview:free";

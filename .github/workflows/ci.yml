@@ -12,7 +12,9 @@ jobs:
       - name: Python bagimliliklar
         run: pip install -r requirements.txt pytest
       - name: Derleme kontrolu
-        run: python -m py_compile agentv2/zenai_zeka.py agentv2/akil_motoru.py agentv2/model_routing.py agentv2/self_correction.py agentv2/otomatik_skorer.py agentv2/cogunluk_oyu.py agentv2/meclis_hakemi.py agentv2/tam_zirve.py agentv2/guvenlik.py agentv2/bellek_vektor.py agentv2/soru_bankasi.py agentv2/dogrulama.py agentv2/dogrulama_seti.py agentv2/llm_provider.py agentv2/onbellek.py agentv2/araclar/*.py karsilastirma.py
+        run: python -m py_compile agentv2/zenai_zeka.py agentv2/akil_motoru.py agentv2/model_routing.py agentv2/self_correction.py agentv2/otomatik_skorer.py agentv2/cogunluk_oyu.py agentv2/meclis_hakemi.py agentv2/tam_zirve.py agentv2/guvenlik.py agentv2/bellek_vektor.py agentv2/soru_bankasi.py agentv2/dogrulama.py agentv2/dogrulama_seti.py agentv2/llm_provider.py agentv2/onbellek.py agentv2/araclar/*.py karsilastirma.py voice/server/modes.py voice/server/streamer.py scripts/olcum.py scripts/sync_konu_modelleri.py
+      - name: JS syntax kontrolu (web api + app)
+        run: node --check web/api/voice.js && node --check web/api/chat.js && node --check web/app.js
       - name: Konu modeli senkron kontrolu (python ↔ js)
         run: python scripts/sync_konu_modelleri.py --kontrol
       - name: Test paketi (+ coverage)
