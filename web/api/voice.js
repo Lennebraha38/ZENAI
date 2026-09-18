@@ -4,6 +4,9 @@
 // SSE'ini HUD'un "faz"/"answer" delta biçimine çevirir.
 // Uç: POST /api/voice  {model:"chat", messages:[...], stream:true}
 const OPENROUTER = "https://openrouter.ai/api/v1/chat/completions";
+const GROQ = "https://api.groq.com/openai/v1/chat/completions";
+const GROQ_HIZLI = process.env.GROQ_FAST_MODEL || "llama-3.3-70b-versatile";
+const GROQ_ULTRA = process.env.GROQ_ULTRA_MODEL || "llama-3.1-8b-instant";
 const MAKS_TOKEN = 16384;
 const MAKS_MESAJ = 60000;
 const ALAN_BASINA = 30;
@@ -93,7 +96,8 @@ export default async function handler(req, res) {
   if (rateLimit(req)) return res.status(429).json({ error: "Cok fazla istek" });
 
   const KEY = process.env.OPENROUTER_KEY || "";
-  if (!KEY) return res.status(500).json({ error: "Sunucuda OPENROUTER_KEY yok" });
+  const GROQ_KEY = process.env.GROQ_API_KEY || "";
+  if (!KEY && !GROQ_KEY) return res.status(500).json({ error: "Sunucuda OPENROUTER_KEY/GROQ_API_KEY yok" });
 
   const { model = "chat", messages, max_tokens = 8192 } = req.body || {};
   if (!messages || !Array.isArray(messages)) {
@@ -111,6 +115,9 @@ export default async function handler(req, res) {
   const kisaMi = soru && (soru.trim().split(/\s+/).length <= 7
     || /^[0-9xX*/=+\-., ]+$/.test(soru.trim()));
   const konu = kisaMi ? "hizli" : konu_sec(soru);
+  // Groq varsa: kısa sorular Groq donanımına (0.3 sn ilk token), uzunlar konu
+  // modeline (OpenRouter). Groq gemlenirse OpenRouter kısa modeline düşülür.
+  const groqHisli = GROQ_KEY && kisaMi;
   const or_model = kisaMi
     ? "nex-agi/nex-n2.5-mini:free"
     : (MODELLER[konu] || VARSAYILAN);
@@ -130,21 +137,17 @@ export default async function handler(req, res) {
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("X-Accel-Buffering", "no");
 
-  try {
-    res.write(olay({ type: "faz", faz: "hazirlaniyor", durum: "dusunuyor",
-      detay: konu + " · " + or_model.split("/")[1], content: "" }));
-
-    const r = await fetch(OPENROUTER, {
+  // Groq için de genişleyen SSE akış okuyucusu (OpenRouter/Groq ortak format)
+  async function sseAkisi(adres, anahtar, govde) {
+    const r = await fetch(adres, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + KEY },
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + anahtar },
       body: JSON.stringify(govde),
     });
     if (!r.ok) {
       const hata = (await r.text()).slice(0, 200);
-      res.write(olay({ type: "faz", faz: "hata", durum: "hata", detay: hata, content: "" }));
-      return res.end("data: [DONE]\n\n");
+      throw new Error("SSE " + r.status + " " + hata);
     }
-
     const reader = r.body.getReader();
     const decoder = new TextDecoder();
     let tampon = "";
@@ -165,12 +168,36 @@ export default async function handler(req, res) {
           const d = j.choices?.[0]?.delta?.content || "";
           if (d) {
             parca += d;
-            // cümle kırılımında "yanit" fazı + canlı token akışı
             res.write(olay({ type: "answer", role: "assistant", content: d }));
           }
         } catch { /* bozuk satir: atla */ }
       }
     }
+    return parca;
+  }
+
+  try {
+    res.write(olay({ type: "faz", faz: "hazirlaniyor", durum: "dusunuyor",
+      detay: (groqHisli ? "groq-" : "") + (konu || "chat") + " · " + String(or_model).split("/")[1], content: "" }));
+
+    let parca = "";
+    if (groqHisli) {
+      // 1) Groq donanımı (ilk token ~0.3 sn)
+      try {
+        res.write(olay({ type: "faz", faz: "dusunuyor", durum: "dusunuyor",
+          detay: "groq · " + GROQ_ULTRA, content: "" }));
+        govde.model = GROQ_ULTRA;
+        parca = await sseAkisi(GROQ, GROQ_KEY, govde);
+      } catch (e) {
+        res.write(olay({ type: "faz", faz: "yedek", durum: "hizli", detay: "Groq sikisti → OpenRouter", content: "" }));
+        govde.model = or_model;
+        parca = await sseAkisi(OPENROUTER, KEY, govde);
+      }
+    } else {
+      govde.model = or_model;
+      parca = await sseAkisi(OPENROUTER, KEY, govde);
+    }
+
     res.write(olay({ type: "faz", faz: "tamamlandi", durum: "konusuyor",
       detay: String(parca.length), content: "" }));
     return res.end("data: [DONE]\n\n");

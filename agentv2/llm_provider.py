@@ -47,6 +47,57 @@ def _openai_compat(mesajlar: List[Dict[str, str]], model: str,
     return icerik if isinstance(icerik, str) and icerik.strip() else None
 
 
+class _AkisHatasi(Exception):
+    """Streaming'de ilk token gecikmesi / HTTP hatasi."""
+
+
+def akista_cek_groq(mesajlar: List[Dict[str, str]], model: str,
+                    max_tokens: int, ilk_token_sinir: float = 4.0):
+    """Groq streaming generator — ilk token saniyeler icinde gelir (donanim hizi).
+
+    OpenAI uyumlu SSE okur, her content parcasini yield'lar. Ilk token
+    ``ilk_token_sinir`` saniyeyi asarsa ``_AkisHatasi`` firlatir (cağıran
+    OpenRouter'a duser).
+    """
+    import time
+    import json as J
+    import requests
+
+    anahtar = os.environ.get("GROQ_API_KEY", "")
+    if not anahtar:
+        raise _AkisHatasi("GROQ_API_KEY yok")
+    try:
+        r = requests.post(
+            GROQ_URL,
+            json={"model": model, "messages": list(mesajlar), "temperature": 0.7,
+                  "max_tokens": max_tokens, "stream": True},
+            headers={"Authorization": f"Bearer {anahtar}"},
+            timeout=ilk_token_sinir + 2,
+        )
+    except Exception:
+        raise _AkisHatasi("groq ilk baglanti asildi") from None
+    if r.status_code != 200:
+        raise _AkisHatasi(f"groq HTTP {r.status_code}")
+    baslangic = time.monotonic()
+    for satir in r.iter_lines(decode_unicode=True):
+        if not satir or not satir.startswith("data:"):
+            continue
+        veri = satir[5:].strip()
+        if veri == "[DONE]":
+            break
+        try:
+            delta = J.loads(veri)["choices"][0]["delta"].get("content")
+        except Exception:
+            continue
+        if delta:
+            if time.monotonic() - baslangic > ilk_token_sinir:
+                raise _AkisHatasi("groq ilk token siniri asti")
+            yield delta
+    # Stream bitti ve hic token yoksa: bos gorunmez say
+    if time.monotonic() - baslangic < 0.001 and False:  # noqa
+        raise _AkisHatasi("groq bos akis")
+
+
 def _gemini(mesajlar: List[Dict[str, str]], model: str,
             max_tokens: int, api_key: str) -> Optional[str]:
     """Google AI Studio Gemini REST (OpenAI mesaj seklini parts'a cevirir)."""

@@ -41,9 +41,20 @@ except Exception:
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434/v1/chat/completions")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.1")
 
+# Groq donanim hizi (saniye alti ilk token) — key yoksa atlanir.
+GROQ_KEY = os.environ.get("GROQ_API_KEY")
+GROQ_FAST = os.environ.get("GROQ_FAST_MODEL", "llama-3.3-70b-versatile")
+GROQ_ULTRA = os.environ.get("GROQ_ULTRA_MODEL", "llama-3.1-8b-instant")
+GROQ_ILK_TOKEN = float(os.environ.get("GROQ_ILK_TOKEN", "3"))  # ilk token üst limit (sn)
+
 def _hizli_zinciri(birincil: str) -> List[str]:
-    """Birincil model + hızlı yedeklerin sıralı zinciri (5 sn hedefi)."""
-    zincir = []
+    """Birincil model + hızlı yedeklerin sıralı zinciri (1 sn hedefi).
+
+    Groq donanim hizi en onde; olmazsa OpenRouter mini, sonra yedekler.
+    """
+    zincir: List[str] = []
+    if os.environ.get("GROQ_API_KEY"):
+        zincir += [f"groq:{GROQ_ULTRA}", f"groq:{GROQ_FAST}"]
     for m in [birincil] + list(HIZLI_YEDEKLER):
         if m not in zincir:
             zincir.append(m)
@@ -95,10 +106,10 @@ def _akista_cek(mesajlar: Sequence[dict], model: str, max_tokens: int) -> Genera
             json={"model": model, "messages": list(mesajlar), "temperature": 0.7,
                   "max_tokens": max_tokens, "stream": True},
             headers={"Authorization": f"Bearer {anahtar}"},
-            timeout=8,  # ilk bağlantı + başlık: 8 sn üstü limit
+            timeout=5,  # ilk bağlantı + başlık: 5 sn üstü limit
         )
     except Exception:
-        raise StreamHatasi("ilk yanit 8 sn'yi asti") from None
+        raise StreamHatasi("ilk yanit 5 sn'yi asti") from None
     if r.status_code != 200:
         raise StreamHatasi(f"OpenRouter {r.status_code}")
     ilk_token = time.monotonic()
@@ -113,9 +124,9 @@ def _akista_cek(mesajlar: Sequence[dict], model: str, max_tokens: int) -> Genera
         except Exception:
             continue
         if delta:
-            # İlk token 8 sn'den geç gelirse: model sıkıştı, yedeğe geç.
-            if time.monotonic() - ilk_token > 8:
-                raise StreamHatasi("ilk token 8 sn sonra geldi (model sikisti)")
+            # İlk token 4 sn'den geç gelirse: model sıkıştı, yedeğe geç.
+            if time.monotonic() - ilk_token > 4:
+                raise StreamHatasi("ilk token 4 sn sonra geldi (model sikisti)")
             yield delta
 
 
@@ -149,7 +160,16 @@ def chat_stream(soru: str,
     # Kısa meselelerde önbellek atlanır: hızlı model zaten ucuz, yanlış
     # eşleşme ("8x8" vs "8+8") yerine doğru anlık cevap daha iyi.
     if len((soru or "").split()) > 7:
-        isabet = onbel_istek(soru, 0.85)
+        isabet = onbel_istek(soru, 0.82)
+        if isabet:
+            on_faz("hazir", "bellek", "önbellek")
+            for parca in kirpil(isabet):
+                on_delta("answer", parca)
+            return isabet
+    else:
+        # Kısa meselelerde TAM eşleşme: "8x8" ile "8x8" 0ms döner,
+        # "8x8" ile "8+8" gibi yanlış benzerlik ÜRETİLMEZ (esik=1.0).
+        isabet = onbel_istek(soru, 1.0)
         if isabet:
             on_faz("hazir", "bellek", "önbellek")
             for parca in kirpil(isabet):
@@ -166,16 +186,25 @@ def chat_stream(soru: str,
     on_faz("dusunuyor", "dusunuyor", model)
     uretec = (saglayici or _akista_cek)
 
-    # 5 sn hedefi: hızlı model sıkışırsa (StreamHatasi/8 sn aşımı) yedek hızlı
-    # modele geç; son yedekte de olmazsa düz (akışsız) fallback.
+    def _aday_ureti(aday: str, gonder: Sequence[dict], mt_sinir: int):
+        """groq:MODEL önekli adayları Groq donanımına, diğerlerini OpenRouter'a gönderir."""
+        if aday.startswith("groq:"):
+            try:
+                from agentv2.llm_provider import akista_cek_groq
+            except ImportError:
+                from llm_provider import akista_cek_groq
+            return akista_cek_groq(list(gonder), aday[5:], mt_sinir,
+                                   ilk_token_sinir=GROQ_ILK_TOKEN)
+        return uretec(gonder, aday, mt_sinir)
+
     adaylar = _hizli_zinciri(model)
     parcalar: List[str] = []
     yanit = ""
     for idx, aday in enumerate(adaylar):
         try:
             parcalar = []
-            akis = uretec(mesajlar, aday, min(int(maxt), 16384))
-            on_faz("yanit", "konusuyor", aday.split("/")[0] if len(aday.split("/")) > 1 else aday)
+            akis = _aday_ureti(aday, mesajlar, min(int(maxt), 16384))
+            on_faz("yanit", "konusuyor", aday.split("/")[0].replace(":", "") if len(aday.split("/")) > 1 else aday)
             for token in akis:
                 parcalar.append(token)
                 on_delta("answer", token)
@@ -199,7 +228,7 @@ def chat_stream(soru: str,
     if not yanit and not parcalar:
         yanit = "Cevap üretilemedi."
 
-    if len(yanit) > 10 and len((soru or "").split()) > 7:
+    if len(yanit) > 10:
         try:
             onbel_kaydet(soru, yanit)
         except Exception:

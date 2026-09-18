@@ -3,6 +3,8 @@
 // Güvenlik: opsiyonel ZENAI_ACCESS_TOKEN, IP bazlı rate-limit, CORS allowlist,
 // max_tokens/mesaj boyutu sınırı (kötüye kullanım koruması).
 const OPENROUTER = "https://openrouter.ai/api/v1/chat/completions";
+const GROQ = "https://api.groq.com/openai/v1/chat/completions";
+const GROQ_ULTRA = process.env.GROQ_ULTRA_MODEL || "llama-3.1-8b-instant";
 
 const MAKS_TOKEN = 16384;      // istemcinin isteyebileceği üst sınır
 const MAKS_MESAJ = 60000;      // serileştirilmiş mesaj boyutu (karakter)
@@ -65,6 +67,7 @@ export default async function handler(req, res) {
   if (!KEY) {
     return res.status(500).json({ error: "Sunucuda OPENROUTER_KEY yok. Vercel -> Settings -> Environment Variables -> OPENROUTER_KEY ekle." });
   }
+  const GROQ_KEY = process.env.GROQ_API_KEY || "";
 
   const { model, messages, temperature = 0.7, max_tokens = 8192, stream = false } = req.body || {};
   if (!model || !messages || !Array.isArray(messages)) {
@@ -78,12 +81,47 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Mesaj çok büyük" });
   }
 
-  try {
-    const r = await fetch(OPENROUTER, {
+  // Kısa meseleler (<=7 kelime veya saf hesaplama) Groq'a gider — ilk token
+  // ~0.3 sn (OpenRouter free kuyruğu 1-3 sn sürebilir). Groq key yoksa veya
+  // hata verirse otomatik OpenRouter'a düşülür; Vercel bozulmaz.
+  const sonSoru = (() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const c = String(messages[i]?.content || "").trim();
+      if (messages[i]?.role === "user" && c) return c;
+    }
+    return "";
+  })();
+  const kisaMi = sonSoru && (sonSoru.split(/\s+/).length <= 7
+    || /^[0-9xX*/=+\-., ]+$/.test(sonSoru));
+  const groqAktif = GROQ_KEY && kisaMi;
+
+  async function openaiCagri(adres, anahtar, govde) {
+    const r = await fetch(adres, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + KEY },
-      body: JSON.stringify({ model, messages, temperature: temp, max_tokens: mt, stream }),
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + anahtar },
+      body: JSON.stringify(govde),
     });
+    if (!r.ok) {
+      let hata = "";
+      try { hata = (await r.text()).slice(0, 200); } catch (e) { }
+      throw new Error("HTTP " + r.status + " " + hata);
+    }
+    return r;
+  }
+
+  try {
+    const govde = { model: groqAktif ? GROQ_ULTRA : model, messages, temperature: temp, max_tokens: mt, stream };
+    let r;
+    if (groqAktif) {
+      try {
+        r = await openaiCagri(GROQ, GROQ_KEY, govde);
+      } catch (e) {
+        // Groq yok/bozuk → OpenRouter (free kuyruğu, ~1-3 sn)
+        r = await openaiCagri(OPENROUTER, KEY, { ...govde, model });
+      }
+    } else {
+      r = await openaiCagri(OPENROUTER, KEY, govde);
+    }
 
     if (stream) {
       // SSE'yi olduğu gibi bayraktan geçir
