@@ -23,6 +23,12 @@ jobs:
         run: python scripts/sync_konu_modelleri.py --kontrol
       - name: Olcum kaniti gate (puansiz karsilastirma / latency yok = FAIL)
         run: python scripts/olcum_dogrula.py
+      - name: Sifre/sifre sizintisi taramasi (build-time)
+        run: |
+          if git grep -nE "(sk-[A-Za-z0-9]{20,}|gsi_|ghp_|AKIA[0-9A-Z]{16}|sk-ant-[A-Za-z0-9]{20,}|Bearer [A-Za-z0-9._-]{20,})" -- ':!*.json' ':!*.jsonl' ':!kayit/*' ':!node_modules' | grep -v "olcum_dogrula" ; then
+            echo "Yukaridaki satirlar secret olabilir!"; exit 1
+          fi
+          echo "Secret taramasi temiz"
       - name: Test paketi (+ coverage)
         run: pip install pytest-cov && python -m pytest tests/ -q --cov=agentv2 --cov-report=term --cov-fail-under=40
       - name: Bagimlilik CVE taramasi (pip-audit)
@@ -49,3 +55,5 @@ jobs:
         run: python -m pytest voice/tests/test_streamer.py voice/tests/test_gateway.py voice/tests/test_bot.py -q
       - name: HUD durum makinesi testi (node)
         run: node voice/tests/test_hud.js
+      - name: Yük testi (sahte LLM, eşzamanlı SSE)
+        run: python scripts/yuk_testi.py --n 20 --eşzaman 10 --hiz_cap 20 --esik 3.0

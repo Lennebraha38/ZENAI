@@ -44,11 +44,13 @@ Kaynak dosya | Yöntem | Model | Tarih | Doğru/Toplam | Yüzde
 - **Zirve (`tam_zirve.py`, 150 soru)**: Kendi soru bankasına göre üretilmiş ölçüm. Skorlayıcı doğruluk ağırlıklı (hedefsiz cevap en fazla 0.4). Tanı-reçete amaçlı; bağımsız doğrulamanın yerine geçmez.
 - Ücretsiz modeller 429 ile kotalıyken benchmark `ZIRVE_MODEL` ile acil yoldan çalışır (ör. `ZIRVE_MODEL=openai/gpt-4o-mini:free`). Not: Bazı modeller açık kotalara tabidir ve her zaman kullanılamayabilir.
 - Her skor `kayit/routing_log.jsonl`'e işlenir ve `model_routing.routing_rapor()` ile gerçek veri üzerinden model önerisi üretir.
+- **Neyin ölçüldüğü:** kod katmanı (`tests/`, `yuk_testi.py`, CI gate'leri) CI'da ölçülür; Python `akil_motoru.py`'nin 5000-kelime hedefi **benchmark aracı**dır (CLI), web'deki "Akıl Motoru" modu tarayıcıda ayrı bir hafif akış uygular — ikisinin aynı kod yolu olduğunu iddia etmiyoruz.
 
 ## Test
 
 ```bash
 python3 -m pytest tests/ -q          # 176 test (akil + guvenlik + skor + araclar + token + meclis + dayaniklilik)
+python3 scripts/yuk_testi.py --n 20 --eşzaman 10   # voice gateway eşzamanlılık (SSE, ağ yok)
 python3 agentv2/otomatik_skorer.py karsilastirma.json   # canli test skoru raporu
 python3 agentv2/cogunluk_oyu.py "soru" --tekrar 3       # majority vote
 python3 agentv2/tam_zirve.py --soru 10                  # zirve testi (ilk 10 soru)
