@@ -36,8 +36,15 @@ def olc(saglayici: str, anahtar: str, url: str, model: str, soru: str,
                       timeout=ilk_token_sinir + 30)
     t_http = (time.monotonic() - t0) * 1000
     if r.status_code != 200:
+        metin_hata = r.text[:140]
+        if r.status_code == 401:
+            ipucu = " (GROQ_API_KEY yanlis/env'de yok)"
+        elif r.status_code == 403:
+            ipucu = " (key GECERLI ama organization/model izni yok — Groq konsolda organizasyon olusturulmali)"
+        else:
+            ipucu = ""
         return {"saglayici": saglayici, "model": model, "soru": soru[:50],
-                "hata": f"HTTP {r.status_code}: {r.text[:120]}", "ilktoken_ms": None}
+                "hata": f"HTTP {r.status_code}{ipucu}: {metin_hata}", "ilktoken_ms": None}
     ilk = None
     toplam_metin = []
     for satir in r.iter_lines(decode_unicode=True):
