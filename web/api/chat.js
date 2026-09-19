@@ -4,7 +4,7 @@
 // max_tokens/mesaj boyutu sınırı (kötüye kullanım koruması).
 const OPENROUTER = "https://openrouter.ai/api/v1/chat/completions";
 const GROQ = "https://api.groq.com/openai/v1/chat/completions";
-const GROQ_ULTRA = process.env.GROQ_ULTRA_MODEL || "llama-3.1-8b-instant";
+const GROQ_ULTRA = process.env.GROQ_ULTRA_MODEL || "openai/gpt-oss-120b";
 
 const MAKS_TOKEN = 16384;      // istemcinin isteyebileceği üst sınır
 const MAKS_MESAJ = 60000;      // serileştirilmiş mesaj boyutu (karakter)

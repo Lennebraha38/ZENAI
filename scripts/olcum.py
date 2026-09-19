@@ -31,8 +31,16 @@ def olc(saglayici: str, anahtar: str, url: str, model: str, soru: str,
         "max_tokens": max_tokens, "temperature": 0.7, "stream": True,
     }
     t0 = time.monotonic()
-    r = requests.post(url, json=govde,
-                      headers={"Authorization": f"Bearer {anahtar}"},
+    basliklar = {
+        "Authorization": f"Bearer {anahtar}",
+        "Content-Type": "application/json",
+        "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                       "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"),
+        "Accept": "application/json, text/event-stream",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Cache-Control": "no-cache",
+    }
+    r = requests.post(url, json=govde, headers=basliklar,
                       timeout=ilk_token_sinir + 30)
     t_http = (time.monotonic() - t0) * 1000
     if r.status_code != 200:
@@ -108,7 +116,7 @@ def main() -> int:
         if groq_key:
             sonuclar.append(olc("Groq", groq_key,
                 "https://api.groq.com/openai/v1/chat/completions",
-                os.environ.get("GROQ_ULTRA_MODEL", "llama-3.1-8b-instant"), soru, sistem, 512))
+                os.environ.get("GROQ_ULTRA_MODEL", "openai/gpt-oss-120b"), soru, sistem, 512))
 
     # kaydet
     kayit_dir = ROOT / "kayit"
