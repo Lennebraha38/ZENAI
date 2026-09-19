@@ -10,7 +10,8 @@ gemini_keys.txt
 *.part
 lora_*/
 gguf_*/
-kayit/
+kayit/*
+!kayit/latency.jsonl
 kayit_*/
 *test_sonuc.json
 dongu_test_sonuc*.json

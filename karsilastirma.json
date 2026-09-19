@@ -1,352 +1,507 @@
-[
-  {
-    "no": 1,
-    "konu": "kod",
-    "soru": "Python ile bir dosyanin ilk 5 satirini okuyan fonksiyon yaz.",
-    "cikti": "def oku_ilk_5(yol):\n    with open(yol) as f:\n        return [next(f).rstrip() for _ in range(5)]",
-    "kelime": 12
+{
+  "ozet": {
+    "genel_puan": 27.0,
+    "ortalama_cevaplanan": 27.0,
+    "basarili_soru": 50,
+    "hatali_soru": 0,
+    "konu_ozet": {
+      "kod": {
+        "ortalama": 0.6,
+        "en_dusuk": 0.3,
+        "adet": 5
+      },
+      "matematik": {
+        "ortalama": 1.0,
+        "en_dusuk": 1.0,
+        "adet": 5
+      },
+      "dil": {
+        "ortalama": 0.17,
+        "en_dusuk": 0.0,
+        "adet": 10
+      },
+      "mantik": {
+        "ortalama": 0.25,
+        "en_dusuk": 0.0,
+        "adet": 5
+      },
+      "bilim": {
+        "ortalama": 0.51,
+        "en_dusuk": 0.0,
+        "adet": 5
+      },
+      "tarih": {
+        "ortalama": 0.0,
+        "en_dusuk": 0.0,
+        "adet": 5
+      },
+      "kultur": {
+        "ortalama": 0.0,
+        "en_dusuk": 0.0,
+        "adet": 6
+      },
+      "teknoloji": {
+        "ortalama": 0.0,
+        "en_dusuk": 0.0,
+        "adet": 5
+      },
+      "pratik": {
+        "ortalama": 0.0,
+        "en_dusuk": 0.0,
+        "adet": 4
+      }
+    }
   },
-  {
-    "no": 2,
-    "konu": "kod",
-    "soru": "Basit bir web sunucusu (HTTP) Python ile nasil yazilir? Ornek ver.",
-    "cikti": "import http.server\nclass H(http.server.BaseHTTPRequestHandler):\n    def do_GET(self):\n        self.send_response(200)\n        self.end_headers()\n        self.wfile.write(b'Hello')\nhttp.server.HTTPServer(('',8000),H).serve_forever()",
-    "kelime": 20
-  },
-  {
-    "no": 3,
-    "konu": "kod",
-    "soru": "Bir listeyi kucukten buyuge siralama algoritmasini acikla (quicksort).",
-    "cikti": "pivot = liste[len(liste)//2]\nsag = [x for x in liste if x > pivot]\nesit = [x for x in liste if x == pivot]\nsol = [x for x in liste if x < pivot]\nsol + esit + sag",
-    "kelime": 20
-  },
-  {
-    "no": 4,
-    "konu": "kod",
-    "soru": "SQL'de iki tabloyu birleştirmenin (JOIN) turlerini acikla.",
-    "cikti": "INNER JOIN: eslesen satirlar. LEFT JOIN: sol tablodaki tum satirlar + eslesen sag. RIGHT JOIN: tam tersi. FULL JOIN: tum satirlar.",
-    "kelime": 16
-  },
-  {
-    "no": 5,
-    "konu": "kod",
-    "soru": "Regex ile e-posta adresi dogrulayan ornek yaz.",
-    "cikti": "import re\nre.match(r'^[^@]+@[^@]+\\.[^@]+$', eposta)",
-    "kelime": 8
-  },
-  {
-    "no": 6,
-    "konu": "matematik",
-    "soru": "2+7*3-8/2 isleminin sonucu kactir? Adim adim goster.",
-    "cikti": "7*3=21; 8/2=4; 2+21=23; 23-4=19. Sonuc: 19.",
-    "kelime": 12
-  },
-  {
-    "no": 7,
-    "konu": "matematik",
-    "soru": "Bir dortgenin ic acilarinin toplami neden 360 derecedir?",
-    "cikti": "Dortgen 2 dans paracgebolu olur. Her parca 180°, toplam 360°.",
-    "kelime": 12
-  },
-  {
-    "no": 8,
-    "konu": "matematik",
-    "soru": "Pi sayisinin kesirli yaklasik degerini ve neden dogru oldugunu anlat.",
-    "cikti": "22/7 ~= 3.14. Pi = cevre/dia.dir. Cevre = 2*pi*r, dia = 2*r => oran ~= 22/7.",
-    "kelime": 16
-  },
-  {
-    "no": 9,
-    "konu": "matematik",
-    "soru": "Bir sayinin asal olup olmadigini bulmanin en hizli yolu nedir?",
-    "cikti": "O(n^0.5): n'in karekokunden kucuk asal carpanlar ile böl. Asal carpan bulunamazsa asal.",
-    "kelime": 14
-  },
-  {
-    "no": 10,
-    "konu": "matematik",
-    "soru": "Olasilik: 6 yuzlu zar 2 kez atilinca iki kez 6 gelme ihtimali?",
-    "cikti": "1/6 * 1/6 = 1/36.",
-    "kelime": 6
-  },
-  {
-    "no": 11,
-    "konu": "dil",
-    "soru": "'Ki' baglacinin yazim kurallarini orneklerle anlat.",
-    "cikti": "'Ki' baglaci olarak kullanilirsa ayirlik yazilir: 'Ali ki buraya geldi' (X). 'Biliyorsun ki' (O). Cumle arasinda kosiige kullanimi ayri.",
-    "kelime": 20
-  },
-  {
-    "no": 12,
-    "konu": "dil",
-    "soru": "'Degil' veya 'değil' hangisi dogru? Turkce imla kurallarini acikla.",
-    "cikti": "'değil' (d tele) dogru. 'ki' baglaci ayri yazilir. Ancak 'degil' X. Imla kurallari: olumsuzu 'değil' (d + e + g + i + l).",
-    "kelime": 20
-  },
-  {
-    "no": 13,
-    "konu": "dil",
-    "soru": "Bu cumledeki anlam bozuklugunu bul ve duzelt: 'Kitap okumayi cok seviyorum ama zamanim olmuyor, arkadaslarim kitap okur'",
-    "cikti": "Duzeltme: 'Kitap okumayi cok seviyorum ama zamanim olmuyor, arkadaslarim da kitap okurlar.'",
-    "kelime": 18
-  },
-  {
-    "no": 14,
-    "konu": "dil",
-    "soru": "Bir paragrafi Turkce'den Ingilizce'ye cevir: 'Yaz mevsimi denize girmek icin en guzel zamandir.'",
-    "cikti": "'Summer is the best season for swimming in the sea.'",
-    "kelime": 10
-  },
-  {
-    "no": 15,
-    "konu": "dil",
-    "soru": "'Elma' kelimesinin mecaz anlamini cumlede kullan.",
-    "cikti": "Bu sorunigen elma degil, daha buyuk bir sorun."  ,
-    "kelime": 12
-  },
-  {
-    "no": 16,
-    "konu": "mantik",
-    "soru": "Bir copcu günde 3 sokak temizliyor, her sokak 40 dakika suruyor. 5 copcu 2 sokak temizlerse ne kadar surer? Yanlis varsayimlari da belirt.",
-    "cikti": "1 sokak / 3 copcu = 40 dk / 3 copcu = 13.3 dk/copcu/sokak. 5 copcu 2 sokak: 5 * 2 * 13.3 = 133.3 dakika. Yanlis varsayim: saati paylastirma.",
-    "kelime": 24
-  },
-  {
-    "no": 17,
-    "konu": "mantik",
-    "soru": "Bir dunyada tum kuzgunlar siyahtir. Beyaz bir kuzgun bulursak bu onermeyi nasil degisir?",
-    "cikti": "Onerme 'tum kuzgunlar siyah' demek. Beyaz kuzgun bulmak bu onermeyi cevirebilir (counter-example).",
-    "kelime": 14
-  },
-  {
-    "no": 18,
-    "konu": "mantik",
-    "soru": "Sudoku bulmaca cozumune nasil yaklasilir? Adim adim anlat.",
-    "cikti": "1. Satir/sutun/kutuda bulunan sayilari not et. 2. Bir hucreye yazilabilecek tek sayiyi bul. 3. Tikanan parcaya gore ilerle. 4. Backtrack lazimsa geri don.",
-    "kelime": 26
-  },
-  {
-    "no": 19,
-    "konu": "mantik",
-    "soru": "Klasik bilmece: Hangi soruyu herkes farkli cevaplar?",
-    "cikti": "'Senin adin nedir?' Herkes kendine ait fimdi cevap verir.",
-    "kelime": 12
-  },
-  {
-    "no": 20,
-    "konu": "mantik",
-    "soru": "Eger bugun carsamba ise yarin gunlerden ne? Ama 'yarin' kelimesi pazartesi anlamina gelebilir mi?",
-    "cikti": "Carsamba -> persembe. Ancak 'yarin' bazen 'ertesi gun' degil, 'yakinda' anlamina da gelebilir. Burada gun sirasini kastediyorsak persembe.",
-    "kelime": 22
-  },
-  {
-    "no": 21,
-    "konu": "bilim",
-    "soru": "Fotoelektrik etki nedir ve Einstein bunu nasil acikladi?",
-    "cikti": "Isinli ışinin metali baskan elektron cikarissi. Einstein: ışigi fotong(unite) olarak görür, E = h*f. Elektron cikmasi i Kiran Enerji (E >= W). Bu ile Nobel.",
-    "kelime": 22
-  },
-  {
-    "no": 22,
-    "konu": "bilim",
-    "soru": "DNA'nin yapisini kisa ve anlasilir sekilde anlat.",
-    "cikti": "DNA = double helix (çift sarmal). ADN'de 4 baz: A-T, G-C. 2 sarmal, alt kubuklarla bagli.",
-    "kelime": 14
-  },
-  {
-    "no": 23,
-    "konu": "bilim",
-    "soru": "Yapay zeka ile makine ogrenmesi arasindaki fark nedir?",
-    "cikti": "Yapay zeka: insan zekasini taklit eden sistemler. Makine ogrenmesi: veriden ogrenen alt-kutup sekli. YZ >= MO.",
-    "kelime": 18
-  },
-  {
-    "no": 24,
-    "konu": "bilim",
-    "soru": "Iki uclu ve cift uclu yildizin farki nedir?",
-    "cikti": "Ikuçu yildiz: tek yildiz (guneş gibi). Cift uclu: iki yildiz birbirine kmoslaniyor (binalar gibi).",
-    "kelime": 16
-  },
-  {
-    "no": 25,
-    "konu": "bilim",
-    "soru": "Ses ve ışık hizini karsilastir: hangi daha hizli?",
-    "cikti": "Işik: 300,000 km/s. Ses: 340 m/s (hava). Işik ~1 milyon kati hizli.",
-    "kelime": 14
-  },
-  {
-    "no": 26,
-    "konu": "tarih",
-    "soru": "Osmanli Devleti'nin kurulus yili neydir?",
-    "cikti": "1299",
-    "kelime": 2
-  },
-  {
-    "no": 27,
-    "konu": "tarih",
-    "soru": "Turkiye Cumhuriyeti hangi yil ilan edildi?",
-    "cikti": "1923",
-    "kelime": 2
-  },
-  {
-    "no": 28,
-    "konu": "tarih",
-    "soru": "Istanbul hangi yil fethedildi?",
-    "cikti": "1453",
-    "kelime": 2
-  },
-  {
-    "no": 29,
-    "konu": "tarih",
-    "soru": "2. Dunya Savasi hangi yil sona erdi?",
-    "cikti": "1945",
-    "kelime": 2
-  },
-  {
-    "no": 30,
-    "konu": "tarih",
-    "soru": "TBMM hangi yil acildi?",
-    "cikti": "1920",
-    "kelime": 2
-  },
-  {
-    "no": 31,
-    "konu": "kultur",
-    "soru": "Turkiye'nin baskenti hangi sehirdir?",
-    "cikti": "Ankara",
-    "kelime": 2
-  },
-  {
-    "no": 32,
-    "konu": "kultur",
-    "soru": "Turkiye'nin en kalabalik sehri hangisidir?",
-    "cikti": "Istanbul",
-    "kelime": 2
-  },
-  {
-    "no": 33,
-    "konu": "kultur",
-    "soru": "Dunyanin en uzun nehri hangisidir?",
-    "cikti": "Nil",
-    "kelime": 2
-  },
-  {
-    "no": 34,
-    "konu": "kultur",
-    "soru": "Turkiye'nin kara komşusu olan ulke sayisi kactir?",
-    "cikti": "8",
-    "kelime": 2
-  },
-  {
-    "no": 35,
-    "konu": "kultur",
-    "soru": "Iki kita uzerinde kurulu tek Turk sehri hangisidir?",
-    "cikti": "Istanbul",
-    "kelime": 2
-  },
-  {
-    "no": 36,
-    "konu": "kultur",
-    "soru": "Turkiye'nin en yuksek dagi hangisidir?",
-    "cikti": "Ağrı (5137 m) veya Ararat.",
-    "kelime": 6
-  },
-  {
-    "no": 37,
-    "konu": "dil",
-    "soru": "Turk alfabesinde kac harf vardir?",
-    "cikti": "29",
-    "kelime": 2
-  },
-  {
-    "no": 38,
-    "konu": "dil",
-    "soru": "'kitap' kelimesinin cogulu nedir?",
-    "cikti": "kitaplar",
-    "kelime": 2
-  },
-  {
-    "no": 39,
-    "konu": "dil",
-    "soru": "'gitmek' fiilinin gelecek zaman 1. tekil kisi hali nedir?",
-    "cikti": "gidecegim",
-    "kelime": 2
-  },
-  {
-    "no": 40,
-    "konu": "dil",
-    "soru": "'elmalar' kelimesindeki '-lar' ekinin adi nedir?",
-    "cikti": "cogul eki",
-    "kelime": 3
-  },
-  {
-    "no": 41,
-    "konu": "dil",
-    "soru": "'benim kitap__' cumlesinde kitap kelimesinin iyelik 1. tekil hali nedir?",
-    "cikti": "kitabim",
-    "kelime": 2
-  },
-  {
-    "no": 42,
-    "konu": "teknoloji",
-    "soru": "HTTP protokolunun varsayilan portu kactir?",
-    "cikti": "80",
-    "kelime": 2
-  },
-  {
-    "no": 43,
-    "konu": "teknoloji",
-    "soru": "1 GB kac MB eder?",
-    "cikti": "1024",
-    "kelime": 2
-  },
-  {
-    "no": 44,
-    "konu": "teknoloji",
-    "soru": "1 MB kac KB eder?",
-    "cikti": "1024",
-    "kelime": 2
-  },
-  {
-    "no": 45,
-    "konu": "teknoloji",
-    "soru": "Bir IPv4 adresi kac bitten olusur?",
-    "cikti": "32",
-    "kelime": 2
-  },
-  {
-    "no": 46,
-    "konu": "teknoloji",
-    "soru": "ASCII tablosunda 'A' harfinin ondalik karsiligi kactir?",
-    "cikti": "65",
-    "kelime": 2
-  },
-  {
-    "no": 47,
-    "konu": "pratik",
-    "soru": "Bir duzine kac adettir?",
-    "cikti": "12",
-    "kelime": 2
-  },
-  {
-    "no": 48,
-    "konu": "pratik",
-    "soru": "Bir haftada kac gun vardir?",
-    "cikti": "7",
-    "kelime": 2
-  },
-  {
-    "no": 49,
-    "konu": "pratik",
-    "soru": "1 kilogram kac gram eder?",
-    "cikti": "1000",
-    "kelime": 2
-  },
-  {
-    "no": 50,
-    "konu": "pratik",
-    "soru": "1 saatte kac dakika vardir?",
-    "cikti": "60",
-    "kelime": 2
-  }
-]
+  "sonuclar": [
+    {
+      "no": 1,
+      "konu": "kod",
+      "soru": "Python ile bir dosyanin ilk 5 satirini okuyan fonksiyon yaz.",
+      "cikti": "def oku_ilk_5(yol):\n    with open(yol) as f:\n        return [next(f).rstrip() for _ in range(5)]",
+      "kelime": 12,
+      "puan": 1.0,
+      "puan_notu": "Calisti"
+    },
+    {
+      "no": 2,
+      "konu": "kod",
+      "soru": "Basit bir web sunucusu (HTTP) Python ile nasil yazilir? Ornek ver.",
+      "cikti": "import http.server\nclass H(http.server.BaseHTTPRequestHandler):\n    def do_GET(self):\n        self.send_response(200)\n        self.end_headers()\n        self.wfile.write(b'Hello')\nhttp.server.HTTPServer(('',8000),H).serve_forever()",
+      "kelime": 20,
+      "puan": 0.5,
+      "puan_notu": "Timeout (sonsuz dongu?)"
+    },
+    {
+      "no": 3,
+      "konu": "kod",
+      "soru": "Bir listeyi kucukten buyuge siralama algoritmasini acikla (quicksort).",
+      "cikti": "pivot = liste[len(liste)//2]\nsag = [x for x in liste if x > pivot]\nesit = [x for x in liste if x == pivot]\nsol = [x for x in liste if x < pivot]\nsol + esit + sag",
+      "kelime": 20,
+      "puan": 0.6,
+      "puan_notu": "Runtime hatasi: Traceback (most recent call last):\n  File \"/tmp/tmp0xbc9s3f.py\", line 1, in <module>\n    pivot = liste[len(liste)//2]\n  "
+    },
+    {
+      "no": 4,
+      "konu": "kod",
+      "soru": "SQL'de iki tabloyu birleştirmenin (JOIN) turlerini acikla.",
+      "cikti": "INNER JOIN: eslesen satirlar. LEFT JOIN: sol tablodaki tum satirlar + eslesen sag. RIGHT JOIN: tam tersi. FULL JOIN: tum satirlar.",
+      "kelime": 16,
+      "puan": 0.3,
+      "puan_notu": "Syntax hatasi: invalid syntax (<unknown>, line 1)"
+    },
+    {
+      "no": 5,
+      "konu": "kod",
+      "soru": "Regex ile e-posta adresi dogrulayan ornek yaz.",
+      "cikti": "import re\nre.match(r'^[^@]+@[^@]+\\.[^@]+$', eposta)",
+      "kelime": 8,
+      "puan": 0.6,
+      "puan_notu": "Runtime hatasi: Traceback (most recent call last):\n  File \"/tmp/tmp1htt3mku.py\", line 2, in <module>\n    re.match(r'^[^@]+@[^@]+\\.[^@]+$"
+    },
+    {
+      "no": 6,
+      "konu": "matematik",
+      "soru": "2+7*3-8/2 isleminin sonucu kactir? Adim adim goster.",
+      "cikti": "7*3=21; 8/2=4; 2+21=23; 23-4=19. Sonuc: 19.",
+      "kelime": 12,
+      "puan": 1.0,
+      "puan_notu": "Beklenen deger bulundu: 19"
+    },
+    {
+      "no": 7,
+      "konu": "matematik",
+      "soru": "Bir dortgenin ic acilarinin toplami neden 360 derecedir?",
+      "cikti": "Dortgen 2 dans paracgebolu olur. Her parca 180°, toplam 360°.",
+      "kelime": 12,
+      "puan": 1.0,
+      "puan_notu": "Kavram bulundu: 360"
+    },
+    {
+      "no": 8,
+      "konu": "matematik",
+      "soru": "Pi sayisinin kesirli yaklasik degerini ve neden dogru oldugunu anlat.",
+      "cikti": "22/7 ~= 3.14. Pi = cevre/dia.dir. Cevre = 2*pi*r, dia = 2*r => oran ~= 22/7.",
+      "kelime": 16,
+      "puan": 1.0,
+      "puan_notu": "Kavram bulundu: 22/7, 3.14"
+    },
+    {
+      "no": 9,
+      "konu": "matematik",
+      "soru": "Bir sayinin asal olup olmadigini bulmanin en hizli yolu nedir?",
+      "cikti": "O(n^0.5): n'in karekokunden kucuk asal carpanlar ile böl. Asal carpan bulunamazsa asal.",
+      "kelime": 14,
+      "puan": 1.0,
+      "puan_notu": "Kavram bulundu: karekok"
+    },
+    {
+      "no": 10,
+      "konu": "matematik",
+      "soru": "Olasilik: 6 yuzlu zar 2 kez atilinca iki kez 6 gelme ihtimali?",
+      "cikti": "1/6 * 1/6 = 1/36.",
+      "kelime": 6,
+      "puan": 1.0,
+      "puan_notu": "Beklenen deger bulundu: 1/36"
+    },
+    {
+      "no": 11,
+      "konu": "dil",
+      "soru": "'Ki' baglacinin yazim kurallarini orneklerle anlat.",
+      "cikti": "'Ki' baglaci olarak kullanilirsa ayirlik yazilir: 'Ali ki buraya geldi' (X). 'Biliyorsun ki' (O). Cumle arasinda kosiige kullanimi ayri.",
+      "kelime": 20,
+      "puan": 0.1,
+      "puan_notu": "kisa; beklenen kavram yok"
+    },
+    {
+      "no": 12,
+      "konu": "dil",
+      "soru": "'Degil' veya 'değil' hangisi dogru? Turkce imla kurallarini acikla.",
+      "cikti": "'değil' (d tele) dogru. 'ki' baglaci ayri yazilir. Ancak 'degil' X. Imla kurallari: olumsuzu 'değil' (d + e + g + i + l).",
+      "kelime": 20,
+      "puan": 0.1,
+      "puan_notu": "kisa; hedef yok -> olculemez"
+    },
+    {
+      "no": 13,
+      "konu": "dil",
+      "soru": "Bu cumledeki anlam bozuklugunu bul ve duzelt: 'Kitap okumayi cok seviyorum ama zamanim olmuyor, arkadaslarim kitap okur'",
+      "cikti": "Duzeltme: 'Kitap okumayi cok seviyorum ama zamanim olmuyor, arkadaslarim da kitap okurlar.'",
+      "kelime": 18,
+      "puan": 0.0,
+      "puan_notu": "yetersiz; beklenen kavram yok"
+    },
+    {
+      "no": 14,
+      "konu": "dil",
+      "soru": "Bir paragrafi Turkce'den Ingilizce'ye cevir: 'Yaz mevsimi denize girmek icin en guzel zamandir.'",
+      "cikti": "'Summer is the best season for swimming in the sea.'",
+      "kelime": 10,
+      "puan": 0.75,
+      "puan_notu": "Anahtar: summer, sea, swim, season; yetersiz"
+    },
+    {
+      "no": 15,
+      "konu": "dil",
+      "soru": "'Elma' kelimesinin mecaz anlamini cumlede kullan.",
+      "cikti": "Bu sorunigen elma degil, daha buyuk bir sorun.",
+      "kelime": 12,
+      "puan": 0.75,
+      "puan_notu": "Anahtar: elma; yetersiz"
+    },
+    {
+      "no": 16,
+      "konu": "mantik",
+      "soru": "Bir copcu günde 3 sokak temizliyor, her sokak 40 dakika suruyor. 5 copcu 2 sokak temizlerse ne kadar surer? Yanlis varsayimlari da belirt.",
+      "cikti": "1 sokak / 3 copcu = 40 dk / 3 copcu = 13.3 dk/copcu/sokak. 5 copcu 2 sokak: 5 * 2 * 13.3 = 133.3 dakika. Yanlis varsayim: saati paylastirma.",
+      "kelime": 24,
+      "puan": 0.25,
+      "puan_notu": "kisa; hedef yok -> olculemez"
+    },
+    {
+      "no": 17,
+      "konu": "mantik",
+      "soru": "Bir dunyada tum kuzgunlar siyahtir. Beyaz bir kuzgun bulursak bu onermeyi nasil degisir?",
+      "cikti": "Onerme 'tum kuzgunlar siyah' demek. Beyaz kuzgun bulmak bu onermeyi cevirebilir (counter-example).",
+      "kelime": 14,
+      "puan": 0.0,
+      "puan_notu": "yetersiz; beklenen yok"
+    },
+    {
+      "no": 18,
+      "konu": "mantik",
+      "soru": "Sudoku bulmaca cozumune nasil yaklasilir? Adim adim anlat.",
+      "cikti": "1. Satir/sutun/kutuda bulunan sayilari not et. 2. Bir hucreye yazilabilecek tek sayiyi bul. 3. Tikanan parcaya gore ilerle. 4. Backtrack lazimsa geri don.",
+      "kelime": 26,
+      "puan": 0.9,
+      "puan_notu": "Dogru: sutun; kisa"
+    },
+    {
+      "no": 19,
+      "konu": "mantik",
+      "soru": "Klasik bilmece: Hangi soruyu herkes farkli cevaplar?",
+      "cikti": "'Senin adin nedir?' Herkes kendine ait fimdi cevap verir.",
+      "kelime": 12,
+      "puan": 0.0,
+      "puan_notu": "yetersiz; hedef yok -> olculemez"
+    },
+    {
+      "no": 20,
+      "konu": "mantik",
+      "soru": "Eger bugun carsamba ise yarin gunlerden ne? Ama 'yarin' kelimesi pazartesi anlamina gelebilir mi?",
+      "cikti": "Carsamba -> persembe. Ancak 'yarin' bazen 'ertesi gun' degil, 'yakinda' anlamina da gelebilir. Burada gun sirasini kastediyorsak persembe.",
+      "kelime": 22,
+      "puan": 0.1,
+      "puan_notu": "kisa; hedef yok -> olculemez"
+    },
+    {
+      "no": 21,
+      "konu": "bilim",
+      "soru": "Fotoelektrik etki nedir ve Einstein bunu nasil acikladi?",
+      "cikti": "Isinli ışinin metali baskan elektron cikarissi. Einstein: ışigi fotong(unite) olarak görür, E = h*f. Elektron cikmasi i Kiran Enerji (E >= W). Bu ile Nobel.",
+      "kelime": 22,
+      "puan": 0.89,
+      "puan_notu": "Kavram: foton, enerji; kisa; zengin Turkce"
+    },
+    {
+      "no": 22,
+      "konu": "bilim",
+      "soru": "DNA'nin yapisini kisa ve anlasilir sekilde anlat.",
+      "cikti": "DNA = double helix (çift sarmal). ADN'de 4 baz: A-T, G-C. 2 sarmal, alt kubuklarla bagli.",
+      "kelime": 14,
+      "puan": 0.83,
+      "puan_notu": "Kavram: çift sarmal, baz; kisa"
+    },
+    {
+      "no": 23,
+      "konu": "bilim",
+      "soru": "Yapay zeka ile makine ogrenmesi arasindaki fark nedir?",
+      "cikti": "Yapay zeka: insan zekasini taklit eden sistemler. Makine ogrenmesi: veriden ogrenen alt-kutup sekli. YZ >= MO.",
+      "kelime": 18,
+      "puan": 0.83,
+      "puan_notu": "Kavram: yapay zeka; kisa"
+    },
+    {
+      "no": 24,
+      "konu": "bilim",
+      "soru": "Iki uclu ve cift uclu yildizin farki nedir?",
+      "cikti": "Ikuçu yildiz: tek yildiz (guneş gibi). Cift uclu: iki yildiz birbirine kmoslaniyor (binalar gibi).",
+      "kelime": 16,
+      "puan": 0.0,
+      "puan_notu": "yetersiz; hedef yok -> olculemez"
+    },
+    {
+      "no": 25,
+      "konu": "bilim",
+      "soru": "Ses ve ışık hizini karsilastir: hangi daha hizli?",
+      "cikti": "Işik: 300,000 km/s. Ses: 340 m/s (hava). Işik ~1 milyon kati hizli.",
+      "kelime": 14,
+      "puan": 0.0,
+      "puan_notu": "yetersiz; hedef yok -> olculemez"
+    },
+    {
+      "no": 26,
+      "konu": "tarih",
+      "soru": "Osmanli Devleti'nin kurulus yili neydir?",
+      "cikti": "1299",
+      "kelime": 2,
+      "puan": 0.0,
+      "puan_notu": "yetersiz; hedef yok -> olculemez"
+    },
+    {
+      "no": 27,
+      "konu": "tarih",
+      "soru": "Turkiye Cumhuriyeti hangi yil ilan edildi?",
+      "cikti": "1923",
+      "kelime": 2,
+      "puan": 0.0,
+      "puan_notu": "yetersiz; hedef yok -> olculemez"
+    },
+    {
+      "no": 28,
+      "konu": "tarih",
+      "soru": "Istanbul hangi yil fethedildi?",
+      "cikti": "1453",
+      "kelime": 2,
+      "puan": 0.0,
+      "puan_notu": "yetersiz; hedef yok -> olculemez"
+    },
+    {
+      "no": 29,
+      "konu": "tarih",
+      "soru": "2. Dunya Savasi hangi yil sona erdi?",
+      "cikti": "1945",
+      "kelime": 2,
+      "puan": 0.0,
+      "puan_notu": "yetersiz; hedef yok -> olculemez"
+    },
+    {
+      "no": 30,
+      "konu": "tarih",
+      "soru": "TBMM hangi yil acildi?",
+      "cikti": "1920",
+      "kelime": 2,
+      "puan": 0.0,
+      "puan_notu": "yetersiz; hedef yok -> olculemez"
+    },
+    {
+      "no": 31,
+      "konu": "kultur",
+      "soru": "Turkiye'nin baskenti hangi sehirdir?",
+      "cikti": "Ankara",
+      "kelime": 2,
+      "puan": 0.0,
+      "puan_notu": "yetersiz; hedef yok -> olculemez"
+    },
+    {
+      "no": 32,
+      "konu": "kultur",
+      "soru": "Turkiye'nin en kalabalik sehri hangisidir?",
+      "cikti": "Istanbul",
+      "kelime": 2,
+      "puan": 0.0,
+      "puan_notu": "yetersiz; hedef yok -> olculemez"
+    },
+    {
+      "no": 33,
+      "konu": "kultur",
+      "soru": "Dunyanin en uzun nehri hangisidir?",
+      "cikti": "Nil",
+      "kelime": 2,
+      "puan": 0.0,
+      "puan_notu": "yetersiz; hedef yok -> olculemez"
+    },
+    {
+      "no": 34,
+      "konu": "kultur",
+      "soru": "Turkiye'nin kara komşusu olan ulke sayisi kactir?",
+      "cikti": "8",
+      "kelime": 2,
+      "puan": 0.0,
+      "puan_notu": "yetersiz; hedef yok -> olculemez"
+    },
+    {
+      "no": 35,
+      "konu": "kultur",
+      "soru": "Iki kita uzerinde kurulu tek Turk sehri hangisidir?",
+      "cikti": "Istanbul",
+      "kelime": 2,
+      "puan": 0.0,
+      "puan_notu": "yetersiz; hedef yok -> olculemez"
+    },
+    {
+      "no": 36,
+      "konu": "kultur",
+      "soru": "Turkiye'nin en yuksek dagi hangisidir?",
+      "cikti": "Ağrı (5137 m) veya Ararat.",
+      "kelime": 6,
+      "puan": 0.0,
+      "puan_notu": "yetersiz; hedef yok -> olculemez"
+    },
+    {
+      "no": 37,
+      "konu": "dil",
+      "soru": "Turk alfabesinde kac harf vardir?",
+      "cikti": "29",
+      "kelime": 2,
+      "puan": 0.0,
+      "puan_notu": "yetersiz; hedef yok -> olculemez"
+    },
+    {
+      "no": 38,
+      "konu": "dil",
+      "soru": "'kitap' kelimesinin cogulu nedir?",
+      "cikti": "kitaplar",
+      "kelime": 2,
+      "puan": 0.0,
+      "puan_notu": "yetersiz; hedef yok -> olculemez"
+    },
+    {
+      "no": 39,
+      "konu": "dil",
+      "soru": "'gitmek' fiilinin gelecek zaman 1. tekil kisi hali nedir?",
+      "cikti": "gidecegim",
+      "kelime": 2,
+      "puan": 0.0,
+      "puan_notu": "yetersiz; hedef yok -> olculemez"
+    },
+    {
+      "no": 40,
+      "konu": "dil",
+      "soru": "'elmalar' kelimesindeki '-lar' ekinin adi nedir?",
+      "cikti": "cogul eki",
+      "kelime": 3,
+      "puan": 0.0,
+      "puan_notu": "yetersiz; hedef yok -> olculemez"
+    },
+    {
+      "no": 41,
+      "konu": "dil",
+      "soru": "'benim kitap__' cumlesinde kitap kelimesinin iyelik 1. tekil hali nedir?",
+      "cikti": "kitabim",
+      "kelime": 2,
+      "puan": 0.0,
+      "puan_notu": "yetersiz; hedef yok -> olculemez"
+    },
+    {
+      "no": 42,
+      "konu": "teknoloji",
+      "soru": "HTTP protokolunun varsayilan portu kactir?",
+      "cikti": "80",
+      "kelime": 2,
+      "puan": 0.0,
+      "puan_notu": "yetersiz; hedef yok -> olculemez"
+    },
+    {
+      "no": 43,
+      "konu": "teknoloji",
+      "soru": "1 GB kac MB eder?",
+      "cikti": "1024",
+      "kelime": 2,
+      "puan": 0.0,
+      "puan_notu": "yetersiz; hedef yok -> olculemez"
+    },
+    {
+      "no": 44,
+      "konu": "teknoloji",
+      "soru": "1 MB kac KB eder?",
+      "cikti": "1024",
+      "kelime": 2,
+      "puan": 0.0,
+      "puan_notu": "yetersiz; hedef yok -> olculemez"
+    },
+    {
+      "no": 45,
+      "konu": "teknoloji",
+      "soru": "Bir IPv4 adresi kac bitten olusur?",
+      "cikti": "32",
+      "kelime": 2,
+      "puan": 0.0,
+      "puan_notu": "yetersiz; hedef yok -> olculemez"
+    },
+    {
+      "no": 46,
+      "konu": "teknoloji",
+      "soru": "ASCII tablosunda 'A' harfinin ondalik karsiligi kactir?",
+      "cikti": "65",
+      "kelime": 2,
+      "puan": 0.0,
+      "puan_notu": "yetersiz; hedef yok -> olculemez"
+    },
+    {
+      "no": 47,
+      "konu": "pratik",
+      "soru": "Bir duzine kac adettir?",
+      "cikti": "12",
+      "kelime": 2,
+      "puan": 0.0,
+      "puan_notu": "yetersiz; hedef yok -> olculemez"
+    },
+    {
+      "no": 48,
+      "konu": "pratik",
+      "soru": "Bir haftada kac gun vardir?",
+      "cikti": "7",
+      "kelime": 2,
+      "puan": 0.0,
+      "puan_notu": "yetersiz; hedef yok -> olculemez"
+    },
+    {
+      "no": 49,
+      "konu": "pratik",
+      "soru": "1 kilogram kac gram eder?",
+      "cikti": "1000",
+      "kelime": 2,
+      "puan": 0.0,
+      "puan_notu": "yetersiz; hedef yok -> olculemez"
+    },
+    {
+      "no": 50,
+      "konu": "pratik",
+      "soru": "1 saatte kac dakika vardir?",
+      "cikti": "60",
+      "kelime": 2,
+      "puan": 0.0,
+      "puan_notu": "yetersiz; hedef yok -> olculemez"
+    }
+  ]
+}

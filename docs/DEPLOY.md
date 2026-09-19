@@ -18,7 +18,6 @@ suresi olculebilir (kusur olcum, not masali degil).
 
 ## Web (aktif) dağıtımı
 - Kök klasör: `web/` (Vercel panel → Project → Settings → Root Directory = `web`).
-- Kök dizindeki `vercel.json` ana reponun eski `api/` (Python) kalıbı içindir ve web dağıtımında KULLANILMAZ.
 - `web/vercel.json` dağıtım için esas ayardır: `buildCommand`/`installCommand` boş,
   `api/*.js` için `maxDuration: 60`, `/api/*` için CORS header.
 - Süre ayarları: `web/api/voice.js`, `web/api/chat.js` OpenRouter/Groq SSE + fallback zinciri

@@ -20,6 +20,22 @@ except ImportError:
     from agentv2.model_routing import model_sec, konu_aciklama, OPENROUTER_URL
     from agentv2.self_correction import self_correction
 
+def _yaz(cikti_yol: str, rapor: Dict[str, Any]) -> None:
+    """JSON'a yazmadan once otomatik skorer ile POST-puanlama yapar.
+    Boylece `karsilastirma.json` her zaman puansiz ham kayit degil,
+    dogrulanmis bir olcum dosyasi olur (CI gate'iyle korunur)."""
+    try:
+        from otomatik_skorer import puanla
+    except ImportError:
+        from agentv2.otomatik_skorer import puanla
+    puanlar = puanla(list(rapor.get("sonuclar", [])))
+    rapor["ozet"] = {k: puanlar[k] for k in
+                     ("genel_puan", "ortalama_cevaplanan", "basarili_soru",
+                      "hatali_soru", "konu_ozet")}
+    rapor["sonuclar"] = puanlar["sonuclar"]
+    with open(cikti_yol, "w") as f:
+        json.dump(rapor, f, ensure_ascii=False, indent=1)
+
 SORULAR = [
     # 1-5: Kod
     ("kod", "Python ile bir dosyanin ilk 5 satirini okuyan fonksiyon yaz."),
@@ -168,12 +184,10 @@ if __name__ == "__main__":
             # Her 10 soruda aralik kaydet (kismi sonuc)
             if i % 10 == 0:
                 cikti_yol = os.environ.get("LB_CIKTI", "karsilastirma.json")
-                with open(cikti_yol, "w") as f:
-                    json.dump({"model": model, "routing": routing, "model_kullanim": model_kullanim, "sonuclar": butun}, f, ensure_ascii=False, indent=1)
+                _yaz(cikti_yol, {"model": model, "routing": routing, "model_kullanim": model_kullanim, "sonuclar": butun})
                 print(f"   [kismi kaydedildi: {i}/50]")
     cikti_yol = os.environ.get("LB_CIKTI", "karsilastirma.json")
-    with open(cikti_yol, "w") as f:
-        json.dump({"model": model, "routing": routing, "model_kullanim": model_kullanim, "sonuclar": butun}, f, ensure_ascii=False, indent=1)
+    _yaz(cikti_yol, {"model": model, "routing": routing, "model_kullanim": model_kullanim, "sonuclar": butun})
     print(f"\nRapor: {cikti_yol}")
     if routing:
         print("\nModel kullanim dagilimi:")

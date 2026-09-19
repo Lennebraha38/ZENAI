@@ -1,9 +1,0 @@
-{
-  "functions": {
-    "api/chat.js": { "maxDuration": 60 },
-    "api/voice.py": { "maxDuration": 60, "memory": 512 }
-  },
-  "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/$1" }
-  ]
-}

@@ -21,7 +21,7 @@ Tabletten buluta uzanan iki kademeli beyin sistemi:
 | **Self-Correction** | `agentv2/self_correction.py` | Kod cevapları sandbox'ta çalıştırılır → syntax/runtime hatası bulunursa model düzeltme turu yapar |
 | **Otomatik Skorer** | `agentv2/otomatik_skorer.py` | Soru-bazlı beklenen yanıt (`soru_bankasi.HEDEFLER`) eşleştirir: matematik=sayısal, mantık/dil=anahtar kavram; kod=sandbox çalıştırma. Doğruluk ağırlıklı: hedefsiz cevap ≤0.4 |
 | **Çoğuluk Oyu** | `agentv2/cogunluk_oyu.py` | Aynı soruyu N kez sorar, en sık cevabı seçer (doğruluk istatistiksel artırılır) |
-| Karşılaştırma testi | `karsilastirma.py` | Türkçe karşılaştırma + rate-limit aware (retry + backoff); çıktısı `karsilastirma.json` (otomatik_skorer'e beslenir) |
+| Karşılaştırma testi | `karsilastirma.py` | Türkçe karşılaştırma + rate-limit aware (retry + backoff); çıktısı **yazım sırasında otomatik puanlanır** (`puan`+`ozet`), CI gate'i puansız ham kaydı reddeder |
 | Benchmark | `agentv2/tam_zirve.py` + `soru_bankasi.py` | **150 soru** / 10 konu / 3 zorluk; `--kategori`, `--zorluk` filtreleri |
 | Bağımsız doğrulama | `agentv2/dogrulama.py` + `dogrulama_seti.py` | 40 gerçek-soru **strict doğru/yanlış** (`puan_strict`); uzunluk/yapı puanı yok |
 | Deep Research | `agentv2/zenai_zeka.py` (`rapor` modu) | Soruyu alt-başlıklara böler, kaynakları toplar, kaynaklı kurumsal rapor yazar |

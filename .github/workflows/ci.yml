@@ -21,6 +21,8 @@ jobs:
         run: node --check web/api/voice.js && node --check web/api/chat.js && node --check web/app.js
       - name: Konu modeli senkron kontrolu (python ↔ js)
         run: python scripts/sync_konu_modelleri.py --kontrol
+      - name: Olcum kaniti gate (puansiz karsilastirma / latency yok = FAIL)
+        run: python scripts/olcum_dogrula.py
       - name: Test paketi (+ coverage)
         run: pip install pytest-cov && python -m pytest tests/ -q --cov=agentv2 --cov-report=term --cov-fail-under=40
       - name: Bagimlilik CVE taramasi (pip-audit)
