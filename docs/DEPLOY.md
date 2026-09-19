@@ -1,5 +1,21 @@
 # DEPLOY — ZenAI NODE (zenai-two.vercel.app)
 
+## Groq hesap: "hicbir organizasyon bulunmuyor" ise
+Bu mesaj Groq konsolunun **Google (Gmail) SSO** akisinda bilinen bir canli
+durumudur — kod degil, hesap. Konsol organizasyonu otomatik acmadiginda:
+
+1. Konsolu **gizli (incognito) pencerede** ac: `https://console.groq.com/login`
+   → "Sign up" → **Google yerine 'Sign up with email'** sec (eposta + sifre).
+   Bu akis organizasyonu otomatik olusturur (Google SSO'da olmayan adim).
+2. Olmazsa GitHub ile giris dene; o da ayni hatayi uretmez.
+3. Organization view acildiginda: sol alt `+ Create organization` → `ZenAI`
+   adi ver → olustur. Sonra `console.groq.com/keys` → `Create API key`
+   (`gsk_...`) → Vercel > Settings > Environment Variables > `GROQ_API_KEY`.
+
+Not: - turbo plan organizasyonundan bagimsizdir; key olusunca `GROQ_API_KEY`
+yerel shell'e de eklenip `scripts/olcum.py --adet=5` ile gercek ilk-token
+suresi olculebilir (kusur olcum, not masali degil).
+
 ## Web (aktif) dağıtımı
 - Kök klasör: `web/` (Vercel panel → Project → Settings → Root Directory = `web`).
 - Kök dizindeki `vercel.json` ana reponun eski `api/` (Python) kalıbı içindir ve web dağıtımında KULLANILMAZ.
