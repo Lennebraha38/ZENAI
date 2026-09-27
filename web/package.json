@@ -11,5 +11,8 @@
     "node": ">=20"
   },
   "license": "MIT",
-  "type": "module"
+  "type": "module",
+  "dependencies": {
+    "@vercel/blob": "^2.8.0"
+  }
 }

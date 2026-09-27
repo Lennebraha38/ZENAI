@@ -4,6 +4,20 @@ process.env.SESSION_SECRET = "test-secret-en-az-16-karakter-uzunluk";
 process.env.GOOGLE_CLIENT_ID = "test-client.apps.googleusercontent.com";
 process.env.ZENAI_ORIGIN = "http://localhost:8899";
 process.env.OPENROUTER_KEY = "sk-or-test-anahtar";
+// Gercek depo (Vercel Blob) ile yazma/okma testi istege bagli.
+// Token ASLA koda gomulmez: web/.env.local (gitignore'li) veya kabuk ortamindan okunur.
+if (!process.env.BLOB_READ_WRITE_TOKEN) {
+  try {
+    const { readFileSync } = await import("node:fs");
+    for (const ln of readFileSync(new URL("../web/.env.local", import.meta.url), "utf8").split("\n")) {
+      const t = ln.trim();
+      if (t.startsWith("BLOB_READ_WRITE_TOKEN=")) {
+        process.env.BLOB_READ_WRITE_TOKEN = t.split("=").slice(1).join("=").trim().replace(/^"|"$/g, "");
+        break;
+      }
+    }
+  } catch { /* .env.local yok -> depo testleri atlanir */ }
+}
 process.env.STRIPE_SECRET_KEY = "sk_test_yok";
 process.env.STRIPE_WEBHOOK_SECRET = "whsec_test_yok";
 process.env.STRIPE_PRICE_GOLD = "price_gold_test";
@@ -16,9 +30,22 @@ const { default: checkout } = await import("../web/api/billing/checkout.js");
 const { default: webhook } = await import("../web/api/billing/webhook.js");
 const { sifrele, dogrula, oturumSifresi, googleDogrula, planGetir, PLANLAR } =
   await import("../web/api/_lib/auth.js");
-const { depoVar, planYaz, planOku } = await import("../web/api/_lib/store.js");
+const { depoVar, depoTuru, planYaz, planOku, planSifirla } = await import("../web/api/_lib/store.js");
 
 import crypto from "node:crypto";
+
+// Vercel Blob sonuclari kisa sureliginde guncellenmeyebilir (sonuc tutarliligi).
+// Bu yuzden belirli bir deger gorunene kadar kisa aralikla yeniden okunur.
+const bekle = (ms) => new Promise((r) => setTimeout(r, ms));
+async function planOkuBekle(sub, beklenen, ms = 6000) {
+  const son = Date.now() + ms;
+  let gorulen = await planOku(sub, "free");
+  while (gorulen !== beklenen && Date.now() < son) {
+    await bekle(400);
+    gorulen = await planOku(sub, "free");
+  }
+  return gorulen;
+}
 
 let gecti = 0, kaldi = 0;
 const ok = (ad, kosul, detay = "") => {
@@ -95,7 +122,10 @@ ok("4 plan listelenir", c.planlar.length === 4);
 
 console.log("\n▸ /api/config (oturumlu)");
 res = sahteRes();
-const oturumJet = sifrele({ sub: "u1", eposta: "a@b.com", ad: "Ali", plan: "free", exp: Math.floor(Date.now() / 1000) + 999 }, sifre);
+// Not: sabit bir sub kullanmak depoda kalici kayit biriktirir ve sonraki
+// calistirmalari bozar. Her calistirmada benzersiz sub uret.
+const testSub = "t-" + Date.now();
+const oturumJet = sifrele({ sub: testSub, eposta: "a@b.com", ad: "Ali", plan: "free", exp: Math.floor(Date.now() / 1000) + 999 }, sifre);
 await config(req({}, { origin: "http://localhost:8899", headers: { cookie: `zenai_oturum=${oturumJet}` } }), res);
 ok("giriş algılanır", res.govde.girisYapildi === true);
 ok("kullanıcı döner", res.govde.kullanici?.eposta === "a@b.com");
@@ -144,7 +174,7 @@ res = sahteRes();
 await checkout(req({ plan: "free" }, { method: "POST", origin: "http://localhost:8899", headers: { cookie: `zenai_oturum=${oturumJet}` } }), res);
 ok("free satın alınamaz 400", res.kod === 400);
 res = sahteRes();
-const goldOtel = sifrele({ sub: "u1", eposta: "a@b.com", plan: "gold", exp: Math.floor(Date.now() / 1000) + 999 }, sifre);
+const goldOtel = sifrele({ sub: testSub + "-g", eposta: "a@b.com", plan: "gold", exp: Math.floor(Date.now() / 1000) + 999 }, sifre);
 await checkout(req({ plan: "silver" }, { method: "POST", origin: "http://localhost:8899", headers: { cookie: `zenai_oturum=${goldOtel}` } }), res);
 ok("aşağı yönlü satın alma engellenir", res.kod === 400);
 res = sahteRes();
@@ -174,20 +204,52 @@ res = sahteRes();
 await webhook(req(govde, { method: "POST" }), res);
 ok("imza başlığı yok 400", res.kod === 400);
 res = sahteRes();
-const tamamlandi = JSON.stringify({ type: "checkout.session.completed", data: { object: { metadata: { sub: "u1", plan: "gold" } } } });
+// Benzersiz anahtar: sabit anahtarlar birbirinin tombstone'ini tetikliyordu.
+const whSub = "wh-" + Date.now();
+const tamamlandi = JSON.stringify({ type: "checkout.session.completed", data: { object: { metadata: { sub: whSub, plan: "gold" } } } });
 await webhook(req(tamamlandi, { method: "POST", headers: { "stripe-signature": imzala(tamamlandi, "whsec_test_yok") } }), res);
-// Depo yapılandırılmadığı için plan yazılamaz → 500 döner ki Stripe yeniden denesin.
-ok("depo yoksa 500 (sessiz kayıp yok)", res.kod === 500);
-ok("500 sebebi plan yazılamadı", /plan yazılamadı/.test(res.govde.error || ""));
+if (depoVar) {
+  // Depo yapılandırılmış: webhook planı yazıp 200 dönmeli (sessiz kayıp yok).
+  ok("depo varken 200 (sessiz kayıp yok)", res.kod === 200);
+  ok("plan depoya yazıldı", (await planOku(whSub, "free")) === "gold");
+  await planSifirla(whSub);
+} else {
+  // Depo yok → 500 döner ki Stripe yeniden denesin.
+  ok("depo yoksa 500 (sessiz kayıp yok)", res.kod === 500);
+  ok("500 sebebi plan yazılamadı", /plan yazılamadı/.test(res.govde.error || ""));
+}
 res = sahteRes();
-const iptal = JSON.stringify({ type: "customer.subscription.deleted", data: { object: { metadata: { sub: "u1" } } } });
+const iptal = JSON.stringify({ type: "customer.subscription.deleted", data: { object: { metadata: { sub: whSub } } } });
 await webhook(req(iptal, { method: "POST", headers: { "stripe-signature": imzala(iptal, "whsec_test_yok") } }), res);
 ok("abonelik iptali 200", res.kod === 200);
+ok("iptalden sonra plan free", (await planOkuBekle(whSub, "free")) === "free");
 
 console.log("\n▸ Depo (yoksa zarif düşüş)");
 ok("depoVar doğru bildiriliyor", typeof depoVar === "boolean");
-ok("depo yoksa planOku varsayılanı verir", (await planOku("u1", "free")) === "free");
-ok("depo yoksa planYaz false", (await planYaz("u1", "gold")) === false);
+ok("depo türü bildiriliyor", ["vercel-blob", "upstash", "yok"].includes(depoTuru));
+ok("sub yoksa planOku varsayılanı verir", (await planOku("", "silver")) === "silver");
+if (!depoVar) {
+  ok("depo yoksa planOku varsayılanı verir", (await planOku("u1", "free")) === "free");
+  ok("depo yoksa planYaz false", (await planYaz("u1", "gold")) === false);
+  ok("depo yoksa planSifirla false", (await planSifirla("u1")) === false);
+}
+
+console.log("\n▸ Depo YAPILANDIRILMIŞKEN gerçek yazma/okuma");
+// Bu blok BLOB/UPSTASH tanimliysa calisir, degilse atlanir
+if (depoVar) {
+  const depoSub = "test-" + Date.now();
+  ok("yazma basarili", (await planYaz(depoSub, "gold")) === true);
+  ok("okuma dogru plan donduruyor", (await planOku(depoSub, "free")) === "gold");
+  // Iptal -> free yazilir, kayit SILINMEZ (Blob tombstone bug'i onlemi).
+  ok("sifirlama basarili", (await planSifirla(depoSub)) === true);
+  ok("sifirlama free donduruyor", (await planOkuBekle(depoSub, "free")) === "free");
+  // Iptal sonrasi yeniden abone olma (onceki belanin kaynak hatasi)
+  ok("yeniden abone olma yaziyor", (await planYaz(depoSub, "platinum")) === true);
+  ok("yeniden abone olma okunuyor", (await planOkuBekle(depoSub, "platinum")) === "platinum");
+  ok("yoksa varsayilana dusuyor", (await planOku("hic-boyle-bir-kullanici-yok-12345", "silver")) === "silver");
+} else {
+  console.log("  (atlandi: BLOB_READ_WRITE_TOKEN veya UPSTASH_* tanimli degil)");
+}
 
 console.log(`\n${gecti} geçti, ${kaldi} kaldı`);
 process.exit(kaldi ? 1 : 0);

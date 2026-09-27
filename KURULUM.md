@@ -1,6 +1,6 @@
 # ZenAI — Gerçek Kimlik Doğrulama ve Abonelik Kurulumu
 
-Kod tamam ve test edildi (48/48 birim testi). Aşağıdaki ortam değişkenleri
+Kod tamam ve test edildi (62/62 birim testi). Aşağıdaki ortam değişkenleri
 Vercel'de tanımlanmadan Google girişi ve ödeme **bilinçli olarak kapalı** kalır
 ve arayüz bunu dürüstçe bildirir.
 
@@ -14,18 +14,23 @@ Vercel → Proje (`zenai`) → Settings → Environment Variables
 | `GOOGLE_CLIENT_ID` | evet | Google Cloud Console → OAuth 2.0 Client ID | `1234...apps.googleusercontent.com` |
 | `STRIPE_SECRET_KEY` | evet | Stripe Dashboard → API keys → Secret key | `sk_live_...` |
 | `STRIPE_WEBHOOK_SECRET` | evet | Stripe → Webhooks → endpoint → Signing secret | `whsec_...` |
-| `STRIPE_PRICE_SILVER` | hayır | Stripe → Products → Prices → ID | `price_...` |
-| `STRIPE_PRICE_GOLD` | hayır | aynı | `price_...` |
-| `STRIPE_PRICE_PLATINUM` | hayır | aynı | `price_...` |
-| `UPSTASH_REDIS_REST_URL` | önerilir | Upstash Console | `https://xxx.upstash.io` |
-| `UPSTASH_REDIS_REST_TOKEN` | önerilir | Upstash Console | `AXxx...` |
+| `STRIPE_PRICE_SILVER` | evet | Stripe → Products → Prices → ID | `price_...` |
+| `STRIPE_PRICE_GOLD` | evet | aynı | `price_...` |
+| `STRIPE_PRICE_PLATINUM` | evet | aynı | `price_...` |
+| `BLOB_READ_WRITE_TOKEN` | evet | `vercel blob create-store` (aşağıda) | `vercel_blob_rw_...` |
 | `ZENAI_ORIGIN` | evet | sitenin adresi (virgülle çoklu) | `https://zenai-two.vercel.app` |
 | `OPENROUTER_KEY` | evet | OpenRouter → API keys | `sk-or-...` |
 
-> **`UPSTASH_*` neden gerekli?** Sunucusuz (serverless) ortamda kalıcı bellek
-> yoktur. Webhook planı bir yere yazmak zorundadır. Upstash kurulu değilse
-> webhook 500 döner — bu **bilinçlidir**: Stripe olayı yeniden denesin diye.
-> Sessizce kayıp yazılsaydı kullanıcı ödeme yapmış ama ücretsiz kalırdı.
+> **`BLOB_READ_WRITE_TOKEN` neden gerekli?** Sunucusuz (serverless) ortamda
+> kalıcı bellek yoktur; webhook planı bir yere yazmak zorundadır. Proje
+> **Vercel Blob** (private store) kullanır — ayrıca bir veritabanı hesabı
+> açmaya gerek yoktur, Vercel hesabı yeterlidir. Depo kurulu değilse webhook
+> 500 döner; bu **bilinçlidir** (Stripe olayı yeniden denesin diye). Sessizce
+> kayıp yazılsaydı kullanıcı ödeme yapmış ama ücretsiz kalırdı.
+>
+> Depo kuruluysa `/api/config` çıktısında `depoVar: true` görünür.
+> `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` tanımlıysa geriye
+> dönük uyum için Upstash de kullanılır (tercih sırası: Blob > Upstash).
 
 ## 2. Google Cloud Console
 
@@ -54,11 +59,24 @@ Vercel → Proje (`zenai`) → Settings → Environment Variables
 5. Test modunda denemek için Stripe CLI:
    `stripe listen --forward-to localhost:8899/api/billing/webhook`
 
-## 4. Upstash Redis (abonelik kalıcılığı)
+## 4. Vercel Blob deposu (abonelik kalıcılığı) — ZATEN KURULU
 
-1. [console.upstash.com](https://console.upstash.com) → yeni veritabanı
-2. REST URL ve TOKEN'ı `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`
-   olarak ekle
+Ayrı hesap açmaya gerek yok; Vercel hesabı yeterli. Depo `web/` dizininde
+kurulur ve `BLOB_READ_WRITE_TOKEN` değişkenini **otomatik** ekler:
+
+```bash
+cd web
+vercel blob create-store zenai-plan --access private --yes
+```
+
+Doğrulama:
+
+```bash
+vercel env ls          # BLOB_READ_WRITE_TOKEN görünmeli
+```
+
+> Yeniden kurulum gerekirse: `vercel blob delete-store <storeId> --yes`
+> sonra yukarıdaki create komutu.
 
 ## 5. Deploy sonrası kontrol
 

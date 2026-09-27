@@ -1,7 +1,7 @@
 // Stripe webhook: ödemeyi doğrular ve planı kalıcı olarak günceller.
 // Tek güvenilir plan yazma noktası budur.
 import crypto from "node:crypto";
-import { planYaz, planSil } from "../_lib/store.js";
+import { planYaz, planSifirla } from "../_lib/store.js";
 
 // Stripe imza doğrulaması (HMAC-SHA256, header'daki timestamp ile).
 function imzaDogrula(yazi, header, secret) {
@@ -72,11 +72,11 @@ export default async function handler(req, res) {
         const yazildi = await planYaz(sub, plan);
         if (!yazildi) throw new Error("plan yazılamadı");
       } else {
-        await planSil(sub); // iptal/askıya alma -> ücretsiz
+        await planSifirla(sub); // iptal/askıya alma -> ücretsiz
       }
     } else if (tip === "customer.subscription.deleted") {
       const sub = nesne.metadata?.sub;
-      if (sub) await planSil(sub);
+      if (sub) await planSifirla(sub);
     }
   } catch (e) {
     // Stripe 2xx bekler; depoya yazılamadıysa yeniden denesin diyle 500 dön.
