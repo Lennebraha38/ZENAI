@@ -1432,3 +1432,97 @@ html[data-tema="aydinlik"] .hata-tekrar:hover { color: #fff; }
 html[data-tema="aydinlik"] .hata-detay pre { background: #1d2440; }
 html[data-tema="aydinlik"] .ob-kart { background: #fff; }
 html[data-tema="aydinlik"] .ob-no { background: linear-gradient(135deg, rgba(47,120,220,.14), rgba(120,80,220,.12)); color: #1f5cb8; }
+/* ═══ ANIMATED AI CHAT ARKA PLANI ═══
+   21st.dev/r/jatin-yadav05/animated-ai-chat referans alınarak native uygulama.
+   React/Framer Motion yok; saf CSS animasyonu + JS parallax, GPU dostu. */
+.ai-anim {
+  position: absolute; inset: -10% -6%;
+  z-index: 0; pointer-events: none; overflow: hidden;
+  contain: strict; will-change: transform;
+}
+.ai-anim > * { position: absolute; display: block; }
+
+.ai-blob {
+  width: 46vmax; height: 46vmax; border-radius: 50%;
+  filter: blur(72px); opacity: .5;
+  transform: translate3d(0, 0, 0) scale(1);
+  animation: aiSürük 26s var(--gecis) infinite alternate;
+  will-change: transform, opacity;
+}
+.ai-blob.b1 { top: -14%; left: -8%;  background: radial-gradient(circle at 30% 30%, #6ee7d7, transparent 68%); animation-duration: 24s; }
+.ai-blob.b2 { top: 8%;   right: -12%; background: radial-gradient(circle at 60% 40%, #7eb8ff, transparent 68%); animation-duration: 30s; animation-delay: -6s; opacity: .42; }
+.ai-blob.b3 { bottom: -18%; left: 22%; background: radial-gradient(circle at 50% 50%, #b79bff, transparent 66%); animation-duration: 34s; animation-delay: -12s; opacity: .36; }
+.ai-blob.b4 { bottom: 4%;  right: 6%;   background: radial-gradient(circle at 40% 60%, #ff9ec4, transparent 64%); animation-duration: 28s; animation-delay: -18s; opacity: .26; }
+
+@keyframes aiSürük {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  33%  { transform: translate3d(6vw, 4vh, 0) scale(1.12); }
+  66%  { transform: translate3d(-4vw, 6vh, 0) scale(.94); }
+  100% { transform: translate3d(3vw, -3vh, 0) scale(1.06); }
+}
+
+/* İnce ızgara — cam yüzeye derinlik verir */
+.ai-izgara {
+  inset: 0; opacity: .3;
+  background-image:
+    linear-gradient(rgba(148, 197, 255, .055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 197, 255, .055) 1px, transparent 1px);
+  background-size: 46px 46px;
+  mask-image: radial-gradient(ellipse 70% 55% at 50% 45%, #000 35%, transparent 78%);
+  -webkit-mask-image: radial-gradient(ellipse 70% 55% at 50% 45%, #000 35%, transparent 78%);
+  animation: aiKayma 40s linear infinite;
+}
+@keyframes aiKayma { to { background-position: 46px 46px, 46px 46px; } }
+
+/* Yumuşak ışık halesi */
+.ai-parlama {
+  top: 50%; left: 50%; width: 78vmax; height: 78vmax;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle, rgba(126, 180, 255, .14), transparent 62%);
+  animation: aiNabiz 9s ease-in-out infinite alternate;
+}
+@keyframes aiNabiz { from { opacity: .5; transform: translate(-50%,-50%) scale(.9); } to { opacity: .95; transform: translate(-50%,-50%) scale(1.08); } }
+
+/* Tetikleyici aurora'nın üstünde cam yüzey gibi dursun */
+.morph-tetik { position: relative; z-index: 1; }
+.morph-tetik::before {
+  content: ""; position: absolute; inset: -10px -14px; z-index: -1;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(255,255,255,.14), rgba(255,255,255,.04));
+  border: 1px solid rgba(255,255,255,.16);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(140%);
+  box-shadow: 0 10px 40px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.22);
+  transition: .3s var(--gecis);
+  pointer-events: none;
+}
+.morph-tetik:hover::before { background: linear-gradient(135deg, rgba(255,255,255,.2), rgba(255,255,255,.07)); border-color: rgba(126,180,255,.42); }
+
+/* Prompt kutusu da cam yüzey */
+.prompt-kutu { position: relative; z-index: 1; }
+
+/* Tema uyumu */
+html[data-tema="aydinlik"] .ai-blob { opacity: .34; filter: blur(80px); }
+html[data-tema="aydinlik"] .ai-izgara { opacity: .42; background-image:
+  linear-gradient(rgba(40, 90, 160, .06) 1px, transparent 1px),
+  linear-gradient(90deg, rgba(40, 90, 160, .06) 1px, transparent 1px); }
+html[data-tema="aydinlik"] .ai-parlama { background: radial-gradient(circle, rgba(90, 150, 255, .12), transparent 62%); }
+html[data-tema="aydinlik"] .morph-tetik::before {
+  background: linear-gradient(135deg, rgba(255,255,255,.72), rgba(255,255,255,.42));
+  border-color: rgba(120, 160, 220, .3);
+  box-shadow: 0 10px 34px rgba(60, 90, 140, .16), inset 0 1px 0 rgba(255,255,255,.9);
+}
+
+/* Erişilebilirlik: hareket azaltma */
+@media (prefers-reduced-motion: reduce) {
+  .ai-blob, .ai-izgara, .ai-parlama { animation: none !important; }
+  .ai-blob { opacity: .3; }
+}
+/* Performans: görünmüyorken durdur */
+.ai-anim.duraklat .ai-blob, .ai-anim.duraklat .ai-izgara, .ai-anim.duraklat .ai-parlama { animation-play-state: paused; }
+/* Küçük ekranda yük azalt */
+@media (max-width: 700px) {
+  .ai-blob { width: 62vmax; height: 62vmax; filter: blur(58px); }
+  .ai-blob.b4 { display: none; }
+  .ai-izgara { background-size: 34px 34px; }
+}

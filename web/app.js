@@ -1636,6 +1636,36 @@ function sidebarMobilAc(kapalim) {
   const gt = $("btnSidebarGoster");
   if (gt) gt.setAttribute("aria-expanded", kapalim ? "false" : "true");
 }
+// ── Animated AI Chat arka planı: fare parallax + görünürlük kontrolü ──
+function aiAnimBaslat() {
+  const kok = $("aiAnim");
+  if (!kok) return;
+  const azalt = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (azalt) return;
+  let hedefX = 0, hedefY = 0, anlikX = 0, anlikY = 0, raf = 0;
+  const ilerle = () => {
+    anlikX += (hedefX - anlikX) * 0.06;
+    anlikY += (hedefY - anlikY) * 0.06;
+    kok.style.transform = `translate3d(${anlikX.toFixed(2)}px, ${anlikY.toFixed(2)}px, 0)`;
+    raf = Math.abs(hedefX - anlikX) > 0.1 || Math.abs(hedefY - anlikY) > 0.1 ? requestAnimationFrame(ilerle) : 0;
+  };
+  window.addEventListener("pointermove", (e) => {
+    const ox = (e.clientX / Math.max(1, window.innerWidth) - 0.5) * 26;
+    const oy = (e.clientY / Math.max(1, window.innerHeight) - 0.5) * 20;
+    hedefX = ox; hedefY = oy;
+    if (!raf) raf = requestAnimationFrame(ilerle);
+  }, { passive: true });
+
+  // Sekme arka plandayken veya katman görünmüyorken animasyonu durdur
+  const gorunur = new IntersectionObserver(([g]) => {
+    kok.classList.toggle("duraklat", !g.isIntersecting);
+  }, { threshold: 0 });
+  gorunur.observe(kok);
+  document.addEventListener("visibilitychange", () => {
+    kok.classList.toggle("duraklat", document.hidden || !kok.getBoundingClientRect().bottom);
+  });
+}
+
 function bagla() {
   $("btnGonder").addEventListener("click", () => {
     const b = $("btnGonder");
@@ -1825,9 +1855,9 @@ function bagla() {
 
   // yasal / güven sayfaları
   const bilgiAc = (tur) => {
-    $("#bilgiBaslik").textContent = t(tur + "_baslik");
-    $("#bilgiIcerik").innerHTML = t(tur + "_icerik");
-    $("#bilgiModal").classList.remove("hidden");
+    $("bilgiBaslik").textContent = t(tur + "_baslik");
+    $("bilgiIcerik").innerHTML = t(tur + "_icerik");
+    $("bilgiModal").classList.remove("hidden");
   };
   if ($("ayakGizlilik")) $("ayakGizlilik").addEventListener("click", (e) => { e.preventDefault(); bilgiAc("gizlilik"); });
   if ($("ayakSartlar")) $("ayakSartlar").addEventListener("click", (e) => { e.preventDefault(); bilgiAc("sartlar"); });
@@ -1853,6 +1883,7 @@ function bagla() {
 // ── Başlangıç ─────────────────────────────────────────
 (async function baslangic() {
   arkaBaslat();
+  aiAnimBaslat();
   temaAt();
   uygulaI18n();
   // Paylaşılan sohbet linki: #s=<base64> → sohbeti yükle

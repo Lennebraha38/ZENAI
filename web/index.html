@@ -59,7 +59,6 @@
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         <span data-i18n="ayarlar">Ayarlar ve Yetenekler</span>
       </div>
-      <div class="side-item" id="btnProfil" title="Bu cihazda">👤 <span data-i18n="bu_cihazda">Bu cihazda</span></div>
       <button class="planlar-btn" id="btnPlanlar">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 2l2.4 4.9 5.4.8-3.9 3.8.9 5.4-4.8-2.5-4.8 2.5.9-5.4L4.2 7.7l5.4-.8z"/></svg>
         <span data-i18n="planlar_btn">Planlar ve fiyatlar</span>
@@ -122,10 +121,19 @@
 
     <!-- Karşılama: morph tetikleyici (chat dışında — silinmez) -->
     <div class="karsilama" id="karsilama" hidden>
+      <!-- Animated AI Chat arka planı: aurora + cam morfolizm katmanı -->
+      <div class="ai-anim" id="aiAnim" aria-hidden="true">
+        <span class="ai-blob b1"></span>
+        <span class="ai-blob b2"></span>
+        <span class="ai-blob b3"></span>
+        <span class="ai-blob b4"></span>
+        <span class="ai-izgara"></span>
+        <span class="ai-parlama"></span>
+      </div>
       <button class="morph-tetik" id="morphTetik" aria-label="Sormaya başla">
         <span class="morph-orb" aria-hidden="true"></span>
         <span class="morph-yazi" data-i18n="morph_tetik">Ne sormak istersin?</span>
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg>
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg>
       </button>
     </div>
 
