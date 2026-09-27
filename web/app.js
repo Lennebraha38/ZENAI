@@ -325,6 +325,7 @@ let aktifSohbet = null;
 let kullanicilar = 1;
 let mcpSk = new Map();        // key name -> (durdum + tools listesi)
 let tekrarAkis = false;
+let akisBasladi = 0;   // akışın başladığı an (durdurma düğmesi için)
 
 // ── Konu → Model yönlendirme (agentv2/model_routing.py ile aynı) ──
 const KONU_MODELLERI = {
@@ -1116,8 +1117,11 @@ async function gonder() {
   gonderBtnGuncelle();
   // Karşılama ekranındaysa girdi kutusunu aç
   girdiAcikYap();
-  $("btnGonder").disabled = true;
   tekrarAkis = true;
+  // Buton DURDUR düğmesine dönüşür; disabled YAPILMAZ (aksi halde
+  // kullanıcı üretimi durduramıyor). Sınıf tekrarAkis atandıktan sonra uygulanır.
+  gonderBtnGuncelle();
+  akisBasladi = Date.now();
 
   const konu = konuBul(tamSoru);
   if ($("swRoute") && $("swRoute").checked) modelPiliCiz(konu);
@@ -1131,7 +1135,13 @@ async function gonder() {
   const soyut = mod === "akil" || girdiPill === "dusun" || girdiPill === "kanvas";
 
   try {
-    if (mod === "meclis") return await meclisTuru(tamSoru, key), (tekrarAkis = false, $("btnGonder").disabled = false);
+    if (mod === "meclis") {
+      await meclisTuru(tamSoru, key);
+      tekrarAkis = false;
+      $("btnGonder").disabled = false;
+      gonderBtnGuncelle();
+      return;
+    }
     // Tek / Akıl Motoru
     const aktifSkillerBu = aktifSkilller.map((i) => skills[i]).filter(Boolean);
     const wrap = mesajEkle("user", tamSoru);
@@ -1238,8 +1248,7 @@ async function gonder() {
     tekrarAkis = false;
     $("btnGonder").disabled = false;
     gonderBtnGuncelle();
-    $("giris").focus();
-  }
+    $("giris").focus();  }
 }
 
 async function meclisTuru(soru, key) {
