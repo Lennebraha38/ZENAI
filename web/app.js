@@ -1819,7 +1819,6 @@ function aiAnimBaslat() {
     kok.classList.toggle("duraklat", document.hidden || !kok.getBoundingClientRect().bottom);
   });
 }
-
 function bagla() {
   $("btnGonder").addEventListener("click", () => {
     const b = $("btnGonder");

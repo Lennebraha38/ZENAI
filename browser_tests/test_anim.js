@@ -13,19 +13,21 @@ const { chromium } = require("playwright");
   O.yapi = await p.evaluate(() => {
     const a = document.getElementById("aiAnim");
     if (!a) return { yok: true };
-    const blob = a.querySelectorAll(".ai-blob");
-    const cs = getComputedStyle(blob[0]);
+    const mesh = a.querySelector(".ai-mesh");
+    const cs = getComputedStyle(mesh);
     return {
-      var: true, blobSayisi: blob.length,
-      izgara: !!a.querySelector(".ai-izgara"), parlama: !!a.querySelector(".ai-parlama"),
-      animasyon: cs.animationName, sure: cs.animationDuration, filtre: cs.filter.slice(0, 24),
+      var: true,
+      mesh: !!mesh, nokta: !!a.querySelector(".ai-nokta"),
+      grain: !!a.querySelector(".ai-grain"), vinyet: !!a.querySelector(".ai-vinyet"),
+      eskiBlobKaldi: a.querySelectorAll(".ai-blob").length,
+      animasyon: cs.animationName, sure: cs.animationDuration, filtre: cs.filter.slice(0, 20),
       katman: getComputedStyle(a).zIndex,
     };
   });
   // animasyon gercekten ilerliyor mu (transform degisiyor mu)
-  const t1 = await p.evaluate(() => getComputedStyle(document.querySelector(".ai-blob.b1")).transform);
+  const t1 = await p.evaluate(() => getComputedStyle(document.querySelector(".ai-mesh")).transform);
   await p.waitForTimeout(1400);
-  const t2 = await p.evaluate(() => getComputedStyle(document.querySelector(".ai-blob.b1")).transform);
+  const t2 = await p.evaluate(() => getComputedStyle(document.querySelector(".ai-mesh")).transform);
   O.animasyonIlerliyor = t1 !== t2;
   O.parallax = await p.evaluate(async () => {
     const a = document.getElementById("aiAnim");
@@ -41,7 +43,7 @@ const { chromium } = require("playwright");
   O.temaAydinlik = await p.evaluate(async () => {
     document.getElementById("btnTema").click();
     await new Promise(r => setTimeout(r, 600));
-    return { tema: document.documentElement.getAttribute("data-tema"), blobOpacity: getComputedStyle(document.querySelector(".ai-blob")).opacity };
+    return { tema: document.documentElement.getAttribute("data-tema"), meshFiltre: getComputedStyle(document.querySelector(".ai-mesh")).filter.slice(0,20), grain: getComputedStyle(document.querySelector(".ai-grain")).opacity };
   });
   O.hatalar = [...new Set(err)];
   console.log(JSON.stringify(O, null, 2));
