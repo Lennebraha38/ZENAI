@@ -2,7 +2,7 @@
 // Tarayıcıdan uzak MCP sunucularına JSON-RPC over HTTP ile alet listeleme/çağırma.
 // CORS ve anahtar sorunlarını sunucu tarafında çözer; key tarayıcıya asla sızmaz.
 // Güvenlik: SSRF önleme — iç ağ/özel IP uçlarına bağlanma engellenir.
-const { lookup } = require("node:dns/promises");
+import { lookup } from "node:dns/promises";
 
 const MCP_HEADERS = { "Content-Type": "application/json", "Accept": "application/json, text/event-stream" };
 

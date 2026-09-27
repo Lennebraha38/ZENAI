@@ -1,0 +1,171 @@
+// Sunucu modülü birim testleri: oturum imzası, Google doğrulama, webhook imzası,
+// checkout koruma kuralları, plan tavanı. Vercel handler'ları doğrudan çağırılır.
+process.env.SESSION_SECRET = "test-secret-en-az-16-karakter-uzunluk";
+process.env.GOOGLE_CLIENT_ID = "test-client.apps.googleusercontent.com";
+process.env.ZENAI_ORIGIN = "http://localhost:8899";
+process.env.STRIPE_SECRET_KEY = "sk_test_yok";
+process.env.STRIPE_WEBHOOK_SECRET = "whsec_test_yok";
+process.env.STRIPE_PRICE_GOLD = "price_gold_test";
+
+const { default: config } = await import("../web/api/config.js");
+const { default: google } = await import("../web/api/auth/google.js");
+const { default: logout } = await import("../web/api/auth/logout.js");
+const { default: checkout } = await import("../web/api/billing/checkout.js");
+const { default: webhook } = await import("../web/api/billing/webhook.js");
+const { sifrele, dogrula, oturumSifresi, googleDogrula, planGetir, PLANLAR } =
+  await import("../web/api/_lib/auth.js");
+const { depoVar, planYaz, planOku } = await import("../web/api/_lib/store.js");
+
+import crypto from "node:crypto";
+
+let gecti = 0, kaldi = 0;
+const ok = (ad, kosul, detay = "") => {
+  if (kosul) { gecti++; console.log(`  ✓ ${ad}`); }
+  else { kaldi++; console.log(`  ✗ ${ad} ${detay}`); }
+};
+
+// Sahte req/res
+function sahteRes() {
+  const r = { kod: 200, govde: null, basliklar: {}, cireZ: [] };
+  r.setHeader = (k, v) => { r.basliklar[k] = v; };
+  r.appendHeader = (k, v) => { r.cireZ.push(`${k}: ${v}`); };
+  r.status = (k) => { r.kod = k; return r; };
+  r.json = (g) => { r.govde = g; return r; };
+  r.end = () => r;
+  return r;
+}
+const req = (b = {}, o = {}) => {
+  const basliklar = { ...(o.headers || {}) };
+  const origin = o.origin || "http://localhost:8899";
+  if (origin) basliklar.origin = origin;
+  return { method: o.method || "GET", headers: basliklar, body: b };
+};
+
+console.log("\n▸ Oturum imzası");
+const sifre = oturumSifresi();
+ok("güçlü secret kabul", !!sifre);
+const j = sifrele({ eposta: "a@b.com", plan: "free" }, sifre);
+ok("jeton doğrulanır", dogrula(j, sifre)?.eposta === "a@b.com");
+ok("yanlış sifre reddedilir", dogrula(j, "baska-sifre-16-karakter-xyz") === null);
+ok("kural imza reddedilir", dogrula(j.slice(0, -3) + "aaa", sifre) === null);
+ok("süresi dolmuş reddedilir", dogrula(sifrele({ exp: 1 }, sifre), sifre) === null);
+ok("özel plan kodla imzalanamaz", dogrula(j, sifre).plan === "free");
+
+console.log("\n▸ Plan tavanı");
+ok("free 8192", planGetir("free").maxToken === 8192);
+ok("gold 32768", planGetir("gold").maxToken === 32768);
+ok("bilinmeyen -> free", planGetir("admin").rank === 0);
+ok("gold > silver", planGetir("gold").rank > planGetir("silver").rank);
+ok("4 plan tanımlı", Object.keys(PLANLAR).length === 4);
+
+console.log("\n▸ /api/config (gizli sızdırmaz)");
+let res = sahteRes();
+await config(req({}, { origin: "http://localhost:8899" }), res);
+const c = res.govde;
+ok("200 döner", res.kod === 200);
+ok("giriş yok", c.girisYapildi === false);
+ok("plan free", c.plan.kod === "free");
+ok("googleAktif true (env var)", c.googleAktif === true);
+ok("SESSION_SECRET sızmaz", !("SESSION_SECRET" in c));
+ok("STRIPE_SECRET_KEY sızmaz", !("STRIPE_SECRET_KEY" in c));
+ok("api key sızmaz", !JSON.stringify(c).toUpperCase().includes("SK_TEST"));
+ok("4 plan listelenir", c.planlar.length === 4);
+
+console.log("\n▸ /api/config (oturumlu)");
+res = sahteRes();
+const oturumJet = sifrele({ sub: "u1", eposta: "a@b.com", ad: "Ali", plan: "free", exp: Math.floor(Date.now() / 1000) + 999 }, sifre);
+await config(req({}, { origin: "http://localhost:8899", headers: { cookie: `zenai_oturum=${oturumJet}` } }), res);
+ok("giriş algılanır", res.govde.girisYapildi === true);
+ok("kullanıcı döner", res.govde.kullanici?.eposta === "a@b.com");
+ok("plan depoda yoksa free", res.govde.plan.kod === "free");
+
+console.log("\n▸ CORS allowlist");
+res = sahteRes();
+await config(req({}, { origin: "https://kotu-sahibi.com" }), res);
+ok("kötü origin 403", res.kod === 403);
+res = sahteRes();
+await config(req({}, { method: "OPTIONS", origin: "https://kotu.com" }), res);
+ok("OPTIONS 204", res.kod === 204);
+
+console.log("\n▸ /api/auth/google");
+res = sahteRes();
+await google(req({ idToken: "sahte.jeton.deger" }, { method: "POST" }), res);
+ok("sahte jeton 401", res.kod === 401);
+ok("401 mesajı döner", /Google doğrulaması/.test(res.govde.error || ""));
+res = sahteRes();
+await google(req({}, { method: "POST" }), res);
+ok("idToken yok 400", res.kod === 400);
+res = sahteRes();
+await google(req({ idToken: "x" }, { method: "POST", origin: "https://kotu.com" }), res);
+ok("kötü origin 403", res.kod === 403);
+// gerçek Google jetonu (ağ) — credential yoksa 401 beklenir
+res = sahteRes();
+await google(req({ idToken: "aaa.bbb.ccc" }, { method: "POST" }), res);
+ok("geçersiz biçim 401", res.kod === 401);
+res = sahteRes();
+await google(req({ idToken: "x" }, { method: "GET" }), res);
+ok("GET 405", res.kod === 405);
+
+console.log("\n▸ /api/auth/logout");
+res = sahteRes();
+await logout(req({}, { origin: "http://localhost:8899" }), res);
+ok("çerez temizleniyor (Max-Age<0)", /Max-Age=-\d+/.test(res.cireZ.join(";")));
+
+console.log("\n▸ /api/billing/checkout");
+res = sahteRes();
+await checkout(req({ plan: "gold" }, { method: "POST" }), res);
+ok("girişsiz 401", res.kod === 401);
+res = sahteRes();
+await checkout(req({ plan: "diamond" }, { method: "POST", origin: "http://localhost:8899", headers: { cookie: `zenai_oturum=${oturumJet}` } }), res);
+ok("geçersiz plan 400", res.kod === 400);
+res = sahteRes();
+await checkout(req({ plan: "free" }, { method: "POST", origin: "http://localhost:8899", headers: { cookie: `zenai_oturum=${oturumJet}` } }), res);
+ok("free satın alınamaz 400", res.kod === 400);
+res = sahteRes();
+const goldOtel = sifrele({ sub: "u1", eposta: "a@b.com", plan: "gold", exp: Math.floor(Date.now() / 1000) + 999 }, sifre);
+await checkout(req({ plan: "silver" }, { method: "POST", origin: "http://localhost:8899", headers: { cookie: `zenai_oturum=${goldOtel}` } }), res);
+ok("aşağı yönlü satın alma engellenir", res.kod === 400);
+res = sahteRes();
+await checkout(req({ plan: "platinum" }, { method: "POST", origin: "http://localhost:8899", headers: { cookie: `zenai_oturum=${oturumJet}` } }), res);
+ok("price ID yoksa 500", res.kod === 500 && /STRIPE_PRICE_PLATINUM/.test(res.govde.error));
+res = sahteRes();
+await checkout(req({ plan: "gold" }, { method: "GET" }), res);
+ok("GET 405", res.kod === 405);
+
+console.log("\n▸ Stripe webhook imzası");
+const govde = JSON.stringify({ type: "ping" });
+const imzala = (g, s, t = Math.floor(Date.now() / 1000)) => {
+  const sig = crypto.createHmac("sha256", s).update(`${t}.${g}`).digest("hex");
+  return `t=${t},v1=${sig}`;
+};
+res = sahteRes();
+await webhook(req(govde, { method: "POST", headers: { "stripe-signature": imzala(govde, "whsec_test_yok") } }), res);
+ok("geçerli imza 200", res.kod === 200);
+ok("alındı", res.govde.alindi === true);
+res = sahteRes();
+await webhook(req(govde, { method: "POST", headers: { "stripe-signature": imzala(govde, "yanlis-secret") } }), res);
+ok("yanlış imza 400", res.kod === 400);
+res = sahteRes();
+await webhook(req(govde, { method: "POST", headers: { "stripe-signature": `t=1,v1=${"aa".repeat(32)}` } }), res);
+ok("eski timestamp reddedilir", res.kod === 400);
+res = sahteRes();
+await webhook(req(govde, { method: "POST" }), res);
+ok("imza başlığı yok 400", res.kod === 400);
+res = sahteRes();
+const tamamlandi = JSON.stringify({ type: "checkout.session.completed", data: { object: { metadata: { sub: "u1", plan: "gold" } } } });
+await webhook(req(tamamlandi, { method: "POST", headers: { "stripe-signature": imzala(tamamlandi, "whsec_test_yok") } }), res);
+// Depo yapılandırılmadığı için plan yazılamaz → 500 döner ki Stripe yeniden denesin.
+ok("depo yoksa 500 (sessiz kayıp yok)", res.kod === 500);
+ok("500 sebebi plan yazılamadı", /plan yazılamadı/.test(res.govde.error || ""));
+res = sahteRes();
+const iptal = JSON.stringify({ type: "customer.subscription.deleted", data: { object: { metadata: { sub: "u1" } } } });
+await webhook(req(iptal, { method: "POST", headers: { "stripe-signature": imzala(iptal, "whsec_test_yok") } }), res);
+ok("abonelik iptali 200", res.kod === 200);
+
+console.log("\n▸ Depo (yoksa zarif düşüş)");
+ok("depoVar doğru bildiriliyor", typeof depoVar === "boolean");
+ok("depo yoksa planOku varsayılanı verir", (await planOku("u1", "free")) === "free");
+ok("depo yoksa planYaz false", (await planYaz("u1", "gold")) === false);
+
+console.log(`\n${gecti} geçti, ${kaldi} kaldı`);
+process.exit(kaldi ? 1 : 0);

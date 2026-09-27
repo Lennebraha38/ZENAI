@@ -8,6 +8,125 @@ const OPENROUTER = "https://openrouter.ai/api/v1/chat/completions";
 const CORS_YON = "https://api.allorigins.win/raw?url=";
 const $ = (id) => document.getElementById(id);
 
+// ── Sunucu oturumu / plan durumu (api/config'den gelir) ──
+const SUNUCU = {
+  yukleniyor: true,
+  girisYapildi: false,
+  kullanici: null,
+  plan: { kod: "free", ad: "Free", maxToken: 8192 },
+  googleClientId: "",
+  googleAktif: false,
+  odemeAktif: false,
+};
+
+const API_KOK = (() => {
+  const t = location.hostname;
+  if (t === "localhost" || t === "127.0.0.1") return "http://localhost:8899";
+  return "";
+})();
+
+async function api(yol, govde) {
+  const secenek = { method: govde ? "POST" : "GET", credentials: "include" };
+  if (govde) {
+    secenek.headers = { "Content-Type": "application/json" };
+    secenek.body = JSON.stringify(govde);
+  }
+  return fetch(API_KOK + yol, secenek);
+}
+
+async function sunucuYukle() {
+  try {
+    const r = await api("/api/config");
+    if (!r.ok) throw new Error("config " + r.status);
+    Object.assign(SUNUCU, await r.json(), { yukleniyor: false });
+    authUygula();
+    planlariIsaretle();
+  } catch {
+    SUNUCU.yukleniyor = false; // çevrimdışıysa ücretsiz modda kal
+    authUygula();
+  }
+}
+
+// ── Google Identity Services: gerçek giriş butonu ──
+function googleGirisCiz(gecikme = 0) {
+  const kap = $("girisGoogleKutu");
+  if (!kap || !SUNUCU.googleClientId || !window.google) return;
+  kap.innerHTML = "";
+  window.google.accounts.id.initialize({
+    client_id: SUNUCU.googleClientId,
+    callback: googleJetonuAl,
+    ux_mode: "popup",
+    context: "signin",
+  });
+  window.google.accounts.id.renderButton(kap, {
+    type: "standard",
+    theme: document.documentElement.getAttribute("data-tema") === "aydinlik" ? "outline" : "filled_black",
+    size: "large",
+    text: "continuewith",
+    shape: "pill",
+    width: Math.max(240, Math.min(320, kap.clientWidth || 280)),
+  });
+}
+
+async function googleJetonuAl(yanit) {
+  const hata = $("girisHata");
+  const gizle = () => hata && hata.classList.add("hidden");
+  const goster = (m) => { if (hata) { hata.textContent = m; hata.classList.remove("hidden"); } };
+  gizle();
+  durum(true, "Google doğrulanıyor…");
+  try {
+    const r = await api("/api/auth/google", { idToken: yanit.credential });
+    const veri = await r.json();
+    if (!r.ok) throw new Error(veri.error || "Giriş başarısız");
+    SUNUCU.girisYapildi = true;
+    SUNUCU.kullanici = veri.kullanici;
+    authKapat();
+    authUygula();
+    planlariIsaretle();
+    durum(true, "Hoş geldin, " + (veri.kullanici.ad || "") + " ✓");
+  } catch (e) {
+    goster(String(e.message || e).slice(0, 140));
+    durum(false);
+  }
+  setTimeout(() => durum(false), 2600);
+}
+
+async function cikisYap() {
+  try { await api("/api/auth/logout", {}); } catch { /* yoksay */ }
+  SUNUCU.girisYapildi = false;
+  SUNUCU.kullanici = null;
+  authUygula();
+  planlariIsaretle();
+  durum(true, "Çıkış yapıldı ✓");
+  setTimeout(() => durum(false), 1800);
+}
+
+// Giriş durumunu arayüze yansıt
+function authUygula() {
+  const b = $("btnAuth");
+  if (b) {
+    const k = SUNUCU.kullanici;
+    b.classList.toggle("girisli", !!k);
+    b.innerHTML = k
+      ? `${k.avatar ? `<img src="${k.avatar}" alt="" class="auth-avatar" referrerpolicy="no-referrer">` : '<span class="auth-avatar-harf">Z</span>'}<span class="auth-ad">${k.ad || "Hesabım"}</span>`
+      : '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><span data-i18n="auth_giris">Giriş</span>';
+    b.onclick = SUNUCU.girisYapildi ? cikisYap : authAc;
+    b.setAttribute("aria-label", k ? "Çıkış yap: " + (k.ad || "") : "Giriş yap");
+  }
+  // Auth modalındaki Google alanı. GIS betiği modal açılınca yüklenir (gisYukle).
+  const kap = $("girisGoogleKutu");
+  if (kap) {
+    if (SUNUCU.yukleniyor) { kap.innerHTML = '<div class="giris-bekle">Bağlanıyor…</div>'; return; }
+    if (!SUNUCU.googleAktif) {
+      kap.innerHTML = '<p class="giris-hata">Google girişi sunucuda yapılandırılmamış. Yönetici ile iletişime geç.</p>';
+      return;
+    }
+    if (window.google) googleGirisCiz();
+    else kap.innerHTML = '<div class="giris-bekle">Google bağlanıyor…</div>';
+  }
+}
+
+
 // ── Model görünen adları ─────────────────────────────
 // Kullanıcıya ham sağlayıcı model kodları değil, marka adları gösterilir.
 // Dahilde (istek/aktarım) gerçek model kodu korunur.
@@ -1310,7 +1429,8 @@ function panelToggle() {
   if (acik) { skillListesiCiz(); mcpListesiCiz(); }
 }
 function planlariIsaretle() {
-  const plan = localStorage.getItem("lb_plan") || "free";
+  // Gerçek plan sunucudan gelir; giriş yoksa yerel seçim yalnızca "demo" işaretidir.
+  const plan = SUNUCU.girisYapildi ? (SUNUCU.plan?.kod || "free") : (localStorage.getItem("lb_plan") || "free");
   document.querySelectorAll(".plan-kart").forEach((k) => {
     const b = k.querySelector(".pk-btn");
     if (!b) return;
@@ -1597,7 +1717,30 @@ function morphAc() {
   setTimeout(() => { $("giris").focus(); gonderBtnGuncelle(); }, 340);
 }
 // ── Auth modal ───────────────────────────────────────
-function authAc() { const m = $("authModal"); if (m) m.classList.remove("hidden"); }
+// Google Identity Services betiği yalnızca giriş modalı açıldığında yüklenir.
+let gisYuklendi = false;
+function gisYukle() {
+  if (gisYuklendi || !SUNUCU.googleAktif) return;
+  gisYuklendi = true;
+  if (window.google) { googleGirisCiz(); return; }
+  const s = document.createElement("script");
+  s.src = "https://accounts.google.com/gsi/client";
+  s.async = true; s.defer = true;
+  s.onload = () => googleGirisCiz();
+  s.onerror = () => {
+    gisYuklendi = false;
+    const h = $("girisHata");
+    if (h) { h.textContent = "Google bağlantısı kurulamadı (ağ engeli?)."; h.classList.remove("hidden"); }
+  };
+  document.head.appendChild(s);
+}
+
+function authAc() {
+  const m = $("authModal");
+  if (!m) return;
+  m.classList.remove("hidden");
+  gisYukle();
+}
 function authKapat() { const m = $("authModal"); if (m) m.classList.add("hidden"); }
 
 function obKapat() {
@@ -1693,12 +1836,36 @@ function bagla() {
   if ($("btnPlanlar")) $("btnPlanlar").addEventListener("click", () => $("planlarModal").classList.remove("hidden"));
   if ($("btnPlanlarKapat")) $("btnPlanlarKapat").addEventListener("click", () => $("planlarModal").classList.add("hidden"));
   document.querySelectorAll(".pk-btn[data-plan]").forEach((b) => {
-    b.addEventListener("click", () => {
+    b.addEventListener("click", async () => {
       const plan = b.dataset.plan;
-      localStorage.setItem("lb_plan", plan);
-      planlariIsaretle();
-      durum(true, plan.toUpperCase() + " planı seçildi — demo modunda ✓");
-      setTimeout(() => durum(false), 2200);
+      if (plan === "free") {
+        localStorage.setItem("lb_plan", "free");
+        planlariIsaretle();
+        durum(true, "Ücretsiz plana geçildi ✓");
+        setTimeout(() => durum(false), 1800);
+        return;
+      }
+      // Gerçek ödeme: giriş + sunucu üzerinden Stripe Checkout.
+      if (!SUNUCU.girisYapildi) { authAc(); durum(true, "Ödeme için önce Google ile giriş yap"); setTimeout(() => durum(false), 2400); return; }
+      if (!SUNUCU.odemeAktif) {
+        durum(true, "Ödeme altyapısı kuruluyor — şimdilik demo modunda");
+        setTimeout(() => durum(false), 2600);
+        return;
+      }
+      b.disabled = true;
+      const etiket = b.textContent;
+      b.textContent = "Yönlendiriliyor…";
+      try {
+        const r = await api("/api/billing/checkout", { plan });
+        const veri = await r.json();
+        if (!r.ok) throw new Error(veri.error || "Ödeme başlatılamadı");
+        window.location.href = veri.url;
+      } catch (e) {
+        b.disabled = false;
+        b.textContent = etiket;
+        durum(true, String(e.message || e).slice(0, 90));
+        setTimeout(() => durum(false), 3200);
+      }
     });
   });
 
@@ -1733,9 +1900,7 @@ function bagla() {
   // Morph panel
   if ($("morphTetik")) $("morphTetik").addEventListener("click", morphAc);
 
-  // Auth
-  if ($("btnAuth")) $("btnAuth").addEventListener("click", authAc);
-  if ($("girisGoogle")) $("girisGoogle").addEventListener("click", () => { authKapat(); durum(true, "Google girişi yapılıyor…"); setTimeout(() => durum(false), 1600); });
+  // Auth (btnAuth bağlantısı authUygula() içinde onclick ile kurulur)
   if ($("girisMisafir")) $("girisMisafir").addEventListener("click", authKapat);
   document.querySelectorAll("#authModal .modal-kutu").forEach((k) => k.addEventListener("click", (e) => e.stopPropagation()));
   if ($("authModal")) $("authModal").addEventListener("click", (e) => { if (e.target === $("authModal")) authKapat(); });
@@ -1884,6 +2049,8 @@ function bagla() {
 (async function baslangic() {
   arkaBaslat();
   aiAnimBaslat();
+  authUygula();
+  sunucuYukle();
   temaAt();
   uygulaI18n();
   // Paylaşılan sohbet linki: #s=<base64> → sohbeti yükle

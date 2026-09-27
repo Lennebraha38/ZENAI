@@ -1,5 +1,5 @@
 const { chromium } = require("playwright");
-const URL = "http://localhost:8899/index.html";
+const URL = process.argv[2] || "http://localhost:8899/index.html";
 const R = {};
 const hatalar = [];
 const w = async (p, ms = 450) => p.waitForTimeout(ms);

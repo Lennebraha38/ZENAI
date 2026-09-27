@@ -1,14 +1,17 @@
 // ZenAI sunucu rölesi (Vercel Serverless).
 // Kullanıcı ASLA key görmez/girmez — key sadece burada (env OPENROUTER_KEY).
 // Güvenlik: opsiyonel ZENAI_ACCESS_TOKEN, IP bazlı rate-limit, CORS allowlist,
-// max_tokens/mesaj boyutu sınırı (kötüye kullanım koruması).
+// max_tokens/mesaj boyutu sınırı (kötüye kullanım koruması) + plan bazlı tavan.
+import { oturumOku, planGetir } from "./_lib/auth.js";
+import { planOku } from "./_lib/store.js";
 const OPENROUTER = "https://openrouter.ai/api/v1/chat/completions";
 const GROQ = "https://api.groq.com/openai/v1/chat/completions";
 const GROQ_ULTRA = process.env.GROQ_ULTRA_MODEL || "openai/gpt-oss-120b";
 
-const MAKS_TOKEN = 16384;      // istemcinin isteyebileceği üst sınır
+const MAKS_TOKEN = 16384;      // istemcinin isteyebileceği mutlak üst sınır
 const MAKS_MESAJ = 60000;      // serileştirilmiş mesaj boyutu (karakter)
-const ALAN_BASINA = 30;        // 60 sn'de IP başına maks istek
+const ALAN_BASINA = 30;        // 60 sn'de IP başına maks istek (ücretsiz/girişsiz)
+const UYE_BASINA = 200;        // giriş yapmış kullanıcı için geniş limit
 
 // ── CORS: sadece izin verilen kökler ──
 function izinliOrigin(req) {
@@ -59,7 +62,13 @@ export default async function handler(req, res) {
   if (!tokenOnay(req)) {
     return res.status(401).json({ error: "Yetkisiz: geçerli bir erişim belirteci gerekli" });
   }
-  if (rateLimit(req)) {
+  // Kullanıcının gerçek planı (yalnızca ödeme webhook'u yazar).
+  const oturum = oturumOku(req);
+  const planKodu = await planOku(oturum?.sub, oturum?.plan || "free");
+  const plan = planGetir(planKodu);
+  const uye = !!oturum;
+
+  if (rateLimit(req, uye ? UYE_BASINA : ALAN_BASINA)) {
     return res.status(429).json({ error: "Çok fazla istek, 60 saniye sonra tekrar dene" });
   }
 
@@ -73,7 +82,9 @@ export default async function handler(req, res) {
   if (!model || !messages || !Array.isArray(messages)) {
     return res.status(400).json({ error: "model ve messages gerekli" });
   }
-  const mt = Math.min(Number(max_tokens) || 8192, MAKS_TOKEN);
+  // Ücretsiz plan daha kısa cevap üretir; üst sınır yine MAKS_TOKEN.
+  const mt = Math.min(Number(max_tokens) || 8192, MAKS_TOKEN, plan.maxToken);
+
   const temp = Math.min(Math.max(Number(temperature) || 0.7, 0), 2);
   let govdeBoyu = 0;
   try { govdeBoyu = JSON.stringify(messages).length; } catch { govdeBoyu = MAKS_MESAJ + 1; }
