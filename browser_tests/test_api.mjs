@@ -51,6 +51,15 @@ ok("kural imza reddedilir", dogrula(j.slice(0, -3) + "aaa", sifre) === null);
 ok("süresi dolmuş reddedilir", dogrula(sifrele({ exp: 1 }, sifre), sifre) === null);
 ok("özel plan kodla imzalanamaz", dogrula(j, sifre).plan === "free");
 
+console.log("\n▸ SESSION_SECRET yoksa API anahtarına düşmez");
+const kaydaSaklanan = process.env.SESSION_SECRET;
+delete process.env.SESSION_SECRET;
+ok("SESSION_SECRET yoksa null", oturumSifresi() === null);
+process.env.OPENROUTER_KEY = "sk-or-baska-anahtar-olsa-bile-imza-anahtari-olmaz";
+ok("OPENROUTER_KEY'e düşmez", oturumSifresi() === null);
+delete process.env.OPENROUTER_KEY;
+process.env.SESSION_SECRET = kaydaSaklanan;
+
 console.log("\n▸ Plan tavanı");
 ok("free 8192", planGetir("free").maxToken === 8192);
 ok("gold 32768", planGetir("gold").maxToken === 32768);

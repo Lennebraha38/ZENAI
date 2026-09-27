@@ -50,7 +50,9 @@ function imzala(govde, sifre) {
 }
 
 export function oturumSifresi() {
-  const s = process.env.SESSION_SECRET || process.env.ZENAI_ACCESS_TOKEN || process.env.OPENROUTER_KEY;
+  // Bilerek başka bir değişkene düşmez: API anahtarları oturum imza anahtarı
+  // olarak kullanılmaz (anahtar döndürülünce tüm oturumlar düşerdi).
+  const s = process.env.SESSION_SECRET;
   if (!s || s.length < 16) return null; // zayıf/eksik secret ile oturum üretme
   return s;
 }
