@@ -181,7 +181,7 @@ const L = {
     ob_4_b: "Ses + model.", ob_4: "Mikrofona bas: tam ekran sesli arama. Model seçici ile otomatik yönlendirme veya sabit model.",
     not_yanilgi: "ZenAI hatalı bilgi verebilir. Önemli bilgileri doğrulayın.",
     dosya_ekle: "Dosya ekle", araclar: "Araçlar: web arama + site okuma + Akıl Motoru",
-    gonder: "Gönder", sohbeti_temizle: "Sohbeti temizle", kaynak_ac: "Yetenekler ve bağlantılar",
+    gonder: "Gönder", durdur: "Üretimi durdur", ses_giris: "Sesli giriş", sohbeti_temizle: "Sohbeti temizle", kaynak_ac: "Yetenekler ve bağlantılar",
     panel_baslik: "Yetenekler ve Bağlantılar", kenar_cubuk: "Kenar çubuğu", kenar_goster: "Kenar çubuğu göster",
     akil_route: "Akıl yönlendirme (konu→model)", kisa_yol: "Kısayol: Enter yerine Ctrl+Enter",
     mod: "Mod", sobhet_modu: "Sohbet", akil_motoru: "Akıl Motoru", meclis_modu: "AI Meclisi", meclis_modelleri: "Meclis modelleri",
@@ -248,7 +248,7 @@ const L = {
     ob_4_b: "Voice + model.", ob_4: "Tap the mic for full-screen voice search. Use the model picker for auto routing or a fixed model.",
     not_yanilgi: "ZenAI may produce inaccurate information. Verify important details.",
     dosya_ekle: "Attach file", araclar: "Tools: web search + site reading + Reasoning Engine",
-    gonder: "Send", sohbeti_temizle: "Clear chat", kaynak_ac: "Skills & connections",
+    gonder: "Send", durdur: "Stop generating", ses_giris: "Voice input", sohbeti_temizle: "Clear chat", kaynak_ac: "Skills & connections",
     panel_baslik: "Skills & Connections", kenar_cubuk: "Sidebar", kenar_goster: "Show sidebar",
     akil_route: "Reasoning routing (topic→model)", kisa_yol: "Shortcut: use Ctrl+Enter instead of Enter",
     mod: "Mode", sobhet_modu: "Chat", akil_motoru: "Reasoning Engine", meclis_modu: "AI Council", meclis_modelleri: "Council models",
@@ -1561,6 +1561,9 @@ function gonderBtnGuncelle() {
   const icerikVar = ($("giris").value.trim() !== "") || !!gorselDosya;
   b.classList.toggle("dolu", icerikVar && !tekrarAkis);
   b.classList.toggle("gonderiliyor", tekrarAkis);
+  // Akış sırasında buton "durdur" görevini üstlenir; ekran okuyucuya bildir.
+  b.setAttribute("aria-label", tekrarAkis ? t("durdur") : (icerikVar ? t("gonder") : t("ses_giris")));
+  b.setAttribute("data-i18n-ar", tekrarAkis ? "durdur" : "gonder");
 }
 
 // ── Tam ekran ses kayıt (ai-voice-input) ─────────────

@@ -33,10 +33,7 @@ const { chromium } = require("playwright");
     const b = document.getElementById("btnGonder");
     return { sinif: b.className, gonderiliyor: b.classList.contains("gonderiliyor"), disabled: b.disabled };
   });
-  // STOP: ayni butona tekrar bas
-  await p.evaluate(() => document.getElementById("btnGonder").click());
-  await p.waitForTimeout(1500);
-  O.stopAni = await p.evaluate(() => {
+  O.stopDurumu = await p.evaluate(() => {
     const b = document.getElementById("btnGonder");
     return {
       gonderiliyor: b.classList.contains("gonderiliyor"),
@@ -45,6 +42,9 @@ const { chromium } = require("playwright");
       butonYazisi: b.getAttribute("aria-label"),
     };
   });
+  // STOP: ayni butona tekrar bas
+  await p.evaluate(() => document.getElementById("btnGonder").click());
+  await p.waitForTimeout(1500);
   O.stopSonrasi = await p.evaluate(() => {
     const b = document.getElementById("btnGonder");
     return {
