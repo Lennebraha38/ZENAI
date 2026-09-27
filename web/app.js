@@ -16,6 +16,7 @@ const MODEL_AD = {
   "nvidia/nemotron-3-ultra-550b-a55b:free": "Nemotron 3",
   "poolside/laguna-s-2.1:free": "Poolside Laguna",
   "cohere/north-mini-code:free": "Cohere North Code",
+  "nex-agi/nex-n2.5-mini:free": "Nexa Flash",
 };
 function modelAdi(model) {
   return MODEL_AD[model] || String(model).split("/").pop().split(":")[0];
@@ -1023,6 +1024,7 @@ async function gonder() {
     loaderAc();
     // Görsel üretimi istendiyse shimmer kartı da göster
     if (/görsel|resim|image|illustration|çiz(im)?|logo\s+(tasarla|yap|üret)/i.test(tamSoru)) gorselUretimGoster(true);
+      gorselUretBaslat(tamSoru); // gerçek üretim (api/gorsel rölesi)
     const loaderKapatFn = () => { loaderKapat(); };
     let tam = "", renderT = null;
     const tazeCiz = () => {
@@ -1538,6 +1540,51 @@ function gorselUretimGoster(goster) {
   k.classList.toggle("hidden", !goster);
 }
 
+// ── Gerçek görsel üretimi: shimmer kartı, röleden dönen görselle doldurulur. ──
+let gorselUretimAktif = false;
+
+async function gorselUretBaslat(soru) {
+  gorselUretimAktif = true;
+  const kart = $("gorselUretimKarti");
+  const icerik = kart?.querySelector(".gu-icerik");
+  try {
+    const r = await fetch("/api/gorsel", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt: String(soru || "").slice(0, 1500), oran: "1:1" }),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || ("HTTP " + r.status));
+    const goruntu = d.goruntu;
+    if (!goruntu || typeof goruntu !== "string" || !goruntu.startsWith("data:image")) {
+      throw new Error("Röle geçerli bir görsel döndürmedi");
+    }
+    const shimmer = kart?.querySelector(".gu-shimmer");
+    if (shimmer) shimmer.classList.add("gu-bitti");
+    if (icerik) {
+      icerik.classList.add("gu-sonuc");
+      const img = document.createElement("img");
+      img.src = goruntu;
+      img.alt = "Üretilen görsel";
+      img.className = "gu-img";
+      img.addEventListener("click", () => {
+        const ac = window.open("", "_blank");
+        if (ac) { ac.document.write('<img src="' + goruntu + '" style="max-width:100%">'); ac.document.close(); }
+      });
+      icerik.replaceChildren(img);
+    }
+  } catch (e) {
+    const shimmer = kart?.querySelector(".gu-shimmer");
+    if (shimmer) shimmer.classList.add("gu-bitti");
+    if (icerik) {
+      icerik.classList.add("gu-hata");
+      icerik.textContent = "Görsel üretilemedi: " + (e.message || "bilinmeyen hata");
+    }
+  } finally {
+    gorselUretimAktif = false;
+  }
+}
+
 // ── Morph panel (ai-input → animated-ai-input) ───────
 function morphAc() {
   const tetik = $("morphTetik");
@@ -1562,6 +1609,33 @@ function obKapat() {
 }
 
 // ── Olay bağlama ──────────────────────────────────────
+// ── Sidebar durumu: tek doğruluk kaynağı sidebarUygula() ──
+// Masaüstünde genişlik animasyonu, mobilde overlay. İkisinde de geri açma
+// butonu (#btnSidebarGoster) görünür kalır. Modül kapsamında: hem bagla()
+// hem baslangic() kullanır.
+const sidebarMobilMi = () => window.matchMedia("(max-width: 900px)").matches;
+function sidebarUygula(gizliMi) {
+  const sb = $("sidebar"), app = $("app");
+  if (!sb || !app) return;
+  sb.classList.toggle("daralmis", !!gizliMi);
+  sb.style.removeProperty("display");
+  app.classList.toggle("sidebar-darali", !!gizliMi);
+  const d = $("btnSidebarDaralt"), g = $("btnSidebarGoster");
+  if (d) d.setAttribute("aria-expanded", gizliMi ? "false" : "true");
+  if (g) g.setAttribute("aria-expanded", gizliMi ? "false" : "true");
+  if ($("swSidebar")) $("swSidebar").checked = !gizliMi;
+  if (gizliMi) localStorage.setItem("lb_sidebar_daral", "1");
+  else localStorage.removeItem("lb_sidebar_daral");
+}
+function sidebarMobilAc(kapalim) {
+  const app = $("app");
+  if (!app) return;
+  app.classList.toggle("sidebar-mobil-acik", !kapalim);
+  const perde = $("sidebarPerde");
+  if (perde) perde.hidden = !!kapalim;
+  const gt = $("btnSidebarGoster");
+  if (gt) gt.setAttribute("aria-expanded", kapalim ? "false" : "true");
+}
 function bagla() {
   $("btnGonder").addEventListener("click", () => {
     const b = $("btnGonder");
@@ -1598,14 +1672,32 @@ function bagla() {
     });
   });
 
-  // Sidebar daralt
+  // ── Sidebar: daralt / göster ──
+  // Tek doğruluk kaynağı: sidebarUygula(). Masaüstünde genişlik animasyonu,
+  // mobilde overlay. Her iki durumda da geri açma butonu görünür kalır.
   if ($("btnSidebarDaralt")) $("btnSidebarDaralt").addEventListener("click", () => {
-    const sb = $("sidebar");
-    const daralmis = !sb.classList.contains("daralmis");
-    sb.classList.toggle("daralmis", daralmis);
-    $("btnSidebarDaralt").setAttribute("aria-expanded", daralmis ? "false" : "true");
-    localStorage.setItem("lb_sidebar_daral", daralmis ? "1" : "");
-    if (!daralmis && $("swSidebar")) $("swSidebar").checked = true;
+    if (sidebarMobilMi()) { sidebarMobilAc(false); return; }
+    sidebarUygula(!$("sidebar").classList.contains("daralmis"));
+  });
+  if ($("btnSidebarGoster")) $("btnSidebarGoster").addEventListener("click", () => {
+    const app = $("app");
+    if (app.classList.contains("sidebar-mobil-acik")) { sidebarMobilAc(true); return; }
+    if (sidebarMobilMi()) { sidebarMobilAc(false); return; }
+    sidebarUygula(false);
+  });
+  if ($("sidebarPerde")) $("sidebarPerde").addEventListener("click", () => sidebarMobilAc(true));
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && $("app").classList.contains("sidebar-mobil-acik")) sidebarMobilAc(true);
+  });
+  // Mobilde sidebar içinde bir şeye tıklayınca kapansın
+  $("sidebar").addEventListener("click", (e) => {
+    if (sidebarMobilMi() && e.target.closest("button:not(#btnSidebarDaralt)")) sidebarMobilAc(true);
+  });
+  // Sadece eşik geçişinde durumu sıfırla; her resize'da menüyü kapatma.
+  let sonMobil = sidebarMobilMi();
+  window.addEventListener("resize", () => {
+    const m = sidebarMobilMi();
+    if (m !== sonMobil) { sonMobil = m; sidebarMobilAc(true); }
   });
 
   // Morph panel
@@ -1715,9 +1807,7 @@ function bagla() {
   // side-bar geçmiş
   if ($("swGecmis")) $("swGecmis").addEventListener("change", (e) => { $("sohbetListesi").style.display = e.target.checked ? "" : "none"; });
   if ($("swSidebar")) $("swSidebar").addEventListener("change", (e) => {
-    const sb = $("sidebar");
-    if (e.target.checked) { sb.classList.remove("daralmis"); $("btnSidebarDaralt").setAttribute("aria-expanded", "true"); localStorage.removeItem("lb_sidebar_daral"); }
-    else { sb.style.display = "none"; }
+    sidebarUygula(!e.target.checked);
   });
   if ($("swRoute")) $("swRoute").addEventListener("change", () => { modelPiliCiz(); });
   if ($("swKisaYol")) $("swKisaYol").addEventListener("change", () => { });
@@ -1801,12 +1891,9 @@ function bagla() {
   bagla();
   sohbetListesiCiz();
   planlariIsaretle();
-  // sidebar daralmışsa koru
-  if (localStorage.getItem("lb_sidebar_daral")) {
-    $("sidebar").classList.add("daralmis");
-    const d = $("btnSidebarDaralt");
-    if (d) d.setAttribute("aria-expanded", "false");
-  }
+  // sidebar daralmışsa geri yükle (artık geri açılabilir)
+  if (localStorage.getItem("lb_sidebar_daral")) sidebarUygula(true);
+  else sidebarUygula(false);
   // İlk açılış: karsilama (morph tetikleyici) görünür, girdi kutusu kapalı
   const kars = $("karsilama");
   if (kars) kars.hidden = false;

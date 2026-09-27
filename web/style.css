@@ -1130,9 +1130,39 @@ html[data-tema="aydinlik"] .mm-check { color: #1f5cb8; }
 .sidebar-daralt:hover { color: var(--zk); border-color: rgba(126,180,255,.5); transform: scale(1.1); }
 .sidebar-daralt svg { transition: transform .3s var(--gecis); }
 #sidebar { position: relative; transition: width .3s var(--gecis), min-width .3s var(--gecis); overflow: visible; }
-#sidebar.daralmis { width: 0; min-width: 0; border: none; overflow: hidden; }
-#sidebar.daralmis .sidebar-daralt { right: -13px; }
-#sidebar.daralmis + #main .sidebar-daralt-geri { display: flex; }
+#sidebar.daralmis { width: 0; min-width: 0; padding-left: 0; padding-right: 0; border: none; overflow: hidden; }
+#sidebar.daralmis .sidebar-daralt { right: -13px; opacity: 0; pointer-events: none; }
+
+/* Kenar çubuğu gizliyken sol kenarda sabit duran "göster" butonu.
+   Sidebar'ın overflow:hidden bağlamı DIŞINDA olduğu için hiçbir zaman kırpılmaz. */
+.sidebar-genislet {
+  position: fixed; left: 0; top: 50%; z-index: 60;
+  transform: translateY(-50%);
+  width: 24px; height: 52px; border-radius: 0 10px 10px 0;
+  border: 1px solid var(--cizgi-2); border-left: none;
+  background: var(--bg-elev); color: var(--zk-3); cursor: pointer;
+  display: none; align-items: center; justify-content: center; padding: 0;
+  transition: .2s var(--gecis); box-shadow: 4px 0 16px rgba(0,0,0,.32);
+}
+.sidebar-genislet:hover { color: var(--zk); border-color: rgba(126,180,255,.5); width: 28px; }
+.sidebar-genislet:focus-visible { outline: 2px solid var(--zk); outline-offset: 2px; }
+#app.sidebar-darali .sidebar-genislet { display: flex; }
+
+/* Mobil: sidebar gizli olduğu için giriş noktası bu butondur. */
+@media (max-width: 900px) {
+  /* Sidebar medya sorgusuyla gizlendiği için göster butonu her zaman görünür
+     olmalı — aksi halde mobilde menüye erişim tamamen kaybolur. */
+  #app:not(.sidebar-mobil-acik) .sidebar-genislet { display: flex; }
+  #app.sidebar-mobil-acik #sidebar {
+    display: flex; position: fixed; left: 0; top: 0; bottom: 0; z-index: 70;
+    width: 264px; min-width: 264px; box-shadow: 24px 0 60px rgba(0,0,0,.6);
+  }
+  #app.sidebar-mobil-acik .perde {
+    display: block; position: fixed; inset: 0; z-index: 65;
+    background: rgba(0,0,0,.55); animation: .2s var(--gecis);
+  }
+  .perde { display: none; }
+}
 
 /* ═══ PLANLAR (pricing) ═══ */
 .planlar-btn {
