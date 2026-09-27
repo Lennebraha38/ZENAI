@@ -653,11 +653,22 @@ function durum(goster, metin) {
 }
 
 async function sunucuKontrol() {
+  // Sağlayıcıyı çağırmayan ucuz kontrol; 200 alınca sunucu modu seçilir.
+  const kontrol = async (yol) => {
+    const r = await fetch(window.location.origin + yol, { method: "GET", credentials: "include" });
+    if (!r.ok) return false;
+    const v = await r.json();
+    return yol === "/api/health" ? v.ok === true : true;
+  };
   try {
-    const r = await fetch(window.location.origin + "/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: "ping", messages: [] }) });
-    sunucuModu = true;
-    return true;
-  } catch (e) { sunucuModu = false; return false; }
+    sunucuModu = await kontrol("/api/health");
+  } catch {
+    try {
+      // Eski sürüm sunucuları: /api/health yoksa yetenek keşfine düş.
+      sunucuModu = await kontrol("/api/config");
+    } catch { sunucuModu = false; }
+  }
+  return sunucuModu;
 }
 
 function gecerliKey() { return $("apiKey").value.trim(); }

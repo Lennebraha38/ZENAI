@@ -3,10 +3,12 @@
 process.env.SESSION_SECRET = "test-secret-en-az-16-karakter-uzunluk";
 process.env.GOOGLE_CLIENT_ID = "test-client.apps.googleusercontent.com";
 process.env.ZENAI_ORIGIN = "http://localhost:8899";
+process.env.OPENROUTER_KEY = "sk-or-test-anahtar";
 process.env.STRIPE_SECRET_KEY = "sk_test_yok";
 process.env.STRIPE_WEBHOOK_SECRET = "whsec_test_yok";
 process.env.STRIPE_PRICE_GOLD = "price_gold_test";
 
+const { default: health } = await import("../web/api/health.js");
 const { default: config } = await import("../web/api/config.js");
 const { default: google } = await import("../web/api/auth/google.js");
 const { default: logout } = await import("../web/api/auth/logout.js");
@@ -58,6 +60,7 @@ ok("SESSION_SECRET yoksa null", oturumSifresi() === null);
 process.env.OPENROUTER_KEY = "sk-or-baska-anahtar-olsa-bile-imza-anahtari-olmaz";
 ok("OPENROUTER_KEY'e düşmez", oturumSifresi() === null);
 delete process.env.OPENROUTER_KEY;
+process.env.OPENROUTER_KEY = "sk-or-test-anahtar"; // sonraki testler için geri koy
 process.env.SESSION_SECRET = kaydaSaklanan;
 
 console.log("\n▸ Plan tavanı");
@@ -72,6 +75,16 @@ let res = sahteRes();
 await config(req({}, { origin: "http://localhost:8899" }), res);
 const c = res.govde;
 ok("200 döner", res.kod === 200);
+
+console.log("\n▸ /api/health");
+res = sahteRes();
+await health(req({}, { origin: "http://localhost:8899" }), res);
+ok("health 200", res.kod === 200);
+ok("health ok=true", res.govde.ok === true);
+ok("health anahtar sızdırmaz", !JSON.stringify(res.govde).toUpperCase().includes("SK-OR"));
+res = sahteRes();
+await health(req({}, { origin: "https://kotu.com" }), res);
+ok("health kötü origin 403", res.kod === 403);
 ok("giriş yok", c.girisYapildi === false);
 ok("plan free", c.plan.kod === "free");
 ok("googleAktif true (env var)", c.googleAktif === true);
