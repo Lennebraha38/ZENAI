@@ -120,6 +120,27 @@ Bu uç nokta **gizli anahtar içermez**. Şunları doğrulaması gerekir:
 - `odemeAktif: false` → Stripe değişkenleri eksik; plan satın alma düğmeleri
   pasif kalır (e-posta + şifre çalışmaya devam eder).
 
+## 5b. OpenRouter bakiyesi (görsel üretimi)
+
+Sohbet ve görsel üretimi **aynı** OpenRouter hesabını kullanır, ama görsel modeli
+çok daha pahalıdır. Tek bir 1:1 görsel ~1000–1500 token tutar.
+
+OpenRouter, istenen azami token'ın hesap bakiyesini karşılayıp karşılamadığını
+**üretim yapmadan** denetler. Bakiye yetmiyorsa isteği reddeder. `/api/gorsel`
+bu durumda HTTP 402 döner ve yanıtta `karşılanabilirToken` alanı, bakiyenin kaç
+token'a yettiğini söyler.
+
+> Şu anda bu hesapta görsel için yalnızca **163 token** karşılanabiliyor — tek bir
+> görsel bile üretmeye yetmiyor. Bakiye yüklenmeden görsel üretimi çalışmaz.
+
+Bakiye yükleme: openrouter.ai → Settings → Credits
+
+Sohbet şu anda çalışıyor (aynı anahtar, HTTP 200 doğrulandı) — yalnızca görsel
+üretimi bakiyeye takılıyor.
+
+Gereken azami token sayısını değiştirmek istersen:
+`OPENROUTER_IMAGE_MAX_TOKENS` (varsayılan 3000).
+
 ## 6. E-posta + şifre hesap sistemi — ZATEN KURULU
 
 Ayrıca hiçbir şey yapmanız gerekmiyor; yalnızca `BLOB_READ_WRITE_TOKEN` yeterli.
