@@ -111,31 +111,57 @@ export default async function handler(req, res) {
       return res.status(r.status).json({ error: hm });
     }
 
-    // OpenRouter görsel modelleri görüntüyü `output` (data URI listesi) olarak döner:
-    //   output: [{ type: "image", data: "data:image/png;base64,..." }, ...]
-    // Bazı modeller choices[0].message.content içinde data URI dizgisi verir.
-    const cikti = Array.isArray(data?.output)
-      ? data.output
-      : Array.isArray(data?.choices?.[0]?.message?.content)
-        ? data.choices[0].message.content
-        : [];
+    // OpenRouter görsel modelleri g��rüntüyü birkaç farklı biçimde döndürebiliyor
+    // ve biçim modele göre DEĞİŞİYOR. Tek bir kalıba güvenmek "model çalışmıyor"
+    // gibi görünen hatalara yol açıyor. Sırayla hepsini deniyoruz:
+    //   1) output: [{ type:"image", data:"data:image/..." }]
+    //   2) message.images: [{ type:"image_url", image_url:{ url:"data:image/..." } }]
+    //   3) message.content: [ { type:"image", ... } ]
+    //   4) message.content: "data:image/..."
+    const mesaj = data?.choices?.[0]?.message;
+    const adaylar = [];
+    if (Array.isArray(data?.output)) adaylar.push(...data.output);
+    if (Array.isArray(mesaj?.images)) adaylar.push(...mesaj.images);
+    if (Array.isArray(mesaj?.content)) adaylar.push(...mesaj.content);
+    if (typeof mesaj?.content === "string") adaylar.push(mesaj.content);
+
     let oniz = null;
-    for (const blok of cikti) {
-      if (!blok) continue;
-      if (blok.type === "image" && typeof blok.data === "string" && blok.data.startsWith("data:image")) {
-        oniz = blok.data; break;
+    for (const blok of adaylar) {
+      if (typeof blok === "string") {
+        // İçinde gömülü data URI olabilir.
+        const gomulu = blok.match(/data:image\/[a-z+]+;base64,[A-Za-z0-9+/=]+/i);
+        if (gomulu) { oniz = gomulu[0]; break; }
+        continue;
       }
-      if (typeof blok.image === "string" && blok.image.startsWith("data:image")) {
-        oniz = blok.image; break;
+      if (!blok || typeof blok !== "object") continue;
+      for (const alan of [blok.data, blok.image, blok.url, blok.b64_json]) {
+        if (typeof alan === "string" && alan.startsWith("data:image")) { oniz = alan; break; }
       }
+      if (oniz) break;
+      // OpenRouter'ın yaygın biçimi: { type:"image_url", image_url:{ url:"data:image/..." } }
+      const iu = blok.image_url;
+      if (typeof iu === "string" && iu.startsWith("data:image")) { oniz = iu; break; }
+      if (iu && typeof iu.url === "string" && iu.url.startsWith("data:image")) { oniz = iu.url; break; }
     }
-    const dogrudan = typeof data?.choices?.[0]?.message?.content === "string"
-      && data.choices[0].message.content.startsWith("data:image")
-      ? data.choices[0].message.content : null;
+    const dogrudan = typeof mesaj?.content === "string"
+      && mesaj.content.startsWith("data:image")
+      ? mesaj.content : null;
     if (!oniz) oniz = dogrudan;
 
     if (!oniz) {
-      return res.status(502).json({ error: "Model görsel döndürmedi (yanıt: " + JSON.stringify(data).slice(0, 200) + ")" });
+      // Ham yanıtı dökmek yerine YAPIYI bildir: hangi alanlara bakıldığı, nereye
+      // bakılması gerektiğini tek bakışta söyler.
+      const anahtarlar = Object.keys(data || {});
+      const mesajAnahtarlari = mesaj ? Object.keys(mesaj) : [];
+      const ilkMetin = typeof mesaj?.content === "string" ? mesaj.content.slice(0, 120) : "";
+      return res.status(502).json({
+        error: "Model görsel döndürmedi.",
+        model: MODEL,
+        yanitAnahtarlari: anahtarlar,
+        mesajAnahtarlari,
+        mesajMetni: ilkMetin,
+        ipucu: "Görsel, choices[0].message.images / output / content içinde data:image olarak bekleniyordu.",
+      });
     }
     if (oniz.length > MAKS_ONIZ) {
       return res.status(502).json({ error: "Görsel yanıtı çok büyük" });
