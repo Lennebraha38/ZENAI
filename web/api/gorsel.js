@@ -85,27 +85,55 @@ export default async function handler(req, res) {
   }
 
   try {
-    const r = await fetch(OPENROUTER, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer " + KEY,
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        messages: [{ role: "user", content: p }],
-        modalities: ["image"],
-        max_tokens: MAKS_TOKEN,
-      }),
-    });
-    const data = await r.json();
+    // OpenRouter çağrısı. Kredi azaldığında OpenRouter "can only afford N"
+    // diyerek isteği baştan reddeder; bu durumda N kadar token ile bir kez daha
+    // deniyoruz. Böylece bakiye düşük olsa bile görsel üretimi çalışır.
+    const cagir = async (azamiToken) => {
+      const r = await fetch(OPENROUTER, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + KEY,
+        },
+        body: JSON.stringify({
+          model: MODEL,
+          messages: [{ role: "user", content: p }],
+          modalities: ["image"],
+          max_tokens: azamiToken,
+        }),
+      });
+      return { r, data: await r.json() };
+    };
+
+    let { r, data } = await cagir(MAKS_TOKEN);
+    if (!r.ok) {
+      const ham = data?.error?.message || data?.message || "";
+      // "You requested up to 16384 tokens, but can only afford 3262"
+      const sig = ham.match(/can only afford\s+(\d+)/i);
+      const sig2 = ham.match(/afford\s+(\d+)\s*tokens/i);
+      const sig3 = ham.match(/maximum.*?is\s+(\d+)/i);
+      const sig4 = ham.match(/max_tokens.*?(\d+)/i);
+      const uygun = Number((sig || sig2 || sig3 || sig4)?.[1] || 0);
+      if (uygun > 0 && uygun < MAKS_TOKEN) {
+        // Görsel için en az 1000 token gerekiyor; altında denemeye değmez.
+        if (uygun >= 1000) {
+          const ikinci = await cagir(uygun);
+          if (ikinci.r.ok) { r = ikinci.r; data = ikinci.data; }
+          else { r = ikinci.r; data = ikinci.data; }
+        }
+      }
+    }
+
     if (!r.ok) {
       const hm = data?.error?.message || data?.message || JSON.stringify(data).slice(0, 300);
       // Kredi yetersizliği en sık karşılaşılan hatadır; ham OpenRouter metni
-      // kullanıcıya hiçbir şey ifade etmiyor.
+      // kullanıcıya hiçbir şey ifade etmiyor. Karşılayabildiği miktarı da
+      // veriyoruz ki ne yapılması gerektiği belli olsun.
       if (/requires more credits|can only afford|insufficient.*credit/i.test(hm)) {
+        const sig = hm.match(/can only afford\s+(\d+)/i);
         return res.status(402).json({
-          error: "Görsel üretimi için OpenRouter kredisi yetersiz. openrouter.ai → Settings → Credits bölümünden bakiye yükle (veya OPENROUTER_IMAGE_MAX_TOKENS değerini düşür).",
+          error: "Görsel üretimi için OpenRouter kredisi yetersiz. openrouter.ai → Settings → Credits bölümünden bakiye yükle.",
+          karşılanabilirToken: sig ? Number(sig[1]) : null,
         });
       }
       return res.status(r.status).json({ error: hm });
