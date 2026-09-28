@@ -14,6 +14,7 @@ const SUNUCU = {
   girisYapildi: false,
   kullanici: null,
   plan: { kod: "free", ad: "Free", maxToken: 8192 },
+  hesapAktif: false,
   googleClientId: "",
   googleAktif: false,
   odemeAktif: false,
@@ -47,7 +48,72 @@ async function sunucuYukle() {
   }
 }
 
-// ── Google Identity Services: gerçek giriş butonu ──
+// ── Giriş formu: e-posta + şifre (kayıt / giriş) ──
+let authModu = "giris"; // "giris" | "kayit"
+
+function authHataGoster(m) {
+  const h = $("girisHata");
+  if (!h) return;
+  if (!m) { h.textContent = ""; h.classList.add("hidden"); return; }
+  h.textContent = String(m).slice(0, 160);
+  h.classList.remove("hidden");
+}
+
+function authModAyarla(mod) {
+  authModu = mod === "kayit" ? "kayit" : "giris";
+  const kayit = authModu === "kayit";
+  $("sekmeGiris")?.classList.toggle("aktif", !kayit);
+  $("sekmeKayit")?.classList.toggle("aktif", kayit);
+  $("sekmeGiris")?.setAttribute("aria-selected", String(!kayit));
+  $("sekmeKayit")?.setAttribute("aria-selected", String(kayit));
+  $("girisAdSar")?.classList.toggle("hidden", !kayit);
+  const ad = $("girisAd"), sifre = $("girisSifre");
+  if (sifre) sifre.autocomplete = kayit ? "new-password" : "current-password";
+  if (ad) ad.required = kayit;
+  const b = $("girisGonder");
+  if (b) b.textContent = kayit ? L.tr.auth_kayit_btn : L.tr.auth_giris_btn;
+  if ($("authBaslik")) $("authBaslik").textContent = kayit ? L.tr.auth_kayit_baslik : L.tr.auth_baslik;
+  authHataGoster("");
+  $("girisSifre")?.focus();
+}
+
+async function authGonder(olay) {
+  olay?.preventDefault();
+  const eposta = $("girisEposta")?.value.trim() || "";
+  const parola = $("girisSifre")?.value || "";
+  const ad = $("girisAd")?.value.trim() || "";
+  const b = $("girisGonder");
+
+  if (!eposta || !parola) { authHataGoster("E-posta ve şifre gerekli"); return; }
+  if (authModu === "kayit" && parola.length < 8) { authHataGoster("Şifre en az 8 karakter olmalı"); return; }
+
+  authHataGoster("");
+  if (b) { b.disabled = true; b.textContent = authModu === "kayit" ? "Hesap oluşturuluyor…" : "Giriş yapılıyor…"; }
+  try {
+    const yol = authModu === "kayit" ? "/api/auth/kayit" : "/api/auth/giris";
+    const r = await api(yol, authModu === "kayit" ? { email: eposta, sifre: parola, ad } : { email: eposta, sifre: parola });
+    const veri = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(veri.error || "Giriş başarısız");
+    SUNUCU.girisYapildi = true;
+    SUNUCU.kullanici = veri.kullanici;
+    if (veri.kullanici?.plan) SUNUCU.plan = veri.kullanici.plan;
+    const sifreKutusu = $("girisSifre");
+    if (sifreKutusu) sifreKutusu.value = ""; // şifre DOM'da kalmasın
+    authKapat();
+    authUygula();
+    planlariIsaretle();
+    durum(true, "Hoş geldin, " + (veri.kullanici.ad || "") + " ✓");
+  } catch (e) {
+    authHataGoster(String(e.message || e));
+    durum(false);
+    return;
+  } finally {
+    if (b) { b.disabled = false; authModAyarla(authModu); }
+  }
+  setTimeout(() => durum(false), 2600);
+}
+
+// ── Google Identity Services: isteğe bağlı alternatif giriş ──
 function googleGirisCiz(gecikme = 0) {
   const kap = $("girisGoogleKutu");
   if (!kap || !SUNUCU.googleClientId || !window.google) return;
@@ -69,10 +135,7 @@ function googleGirisCiz(gecikme = 0) {
 }
 
 async function googleJetonuAl(yanit) {
-  const hata = $("girisHata");
-  const gizle = () => hata && hata.classList.add("hidden");
-  const goster = (m) => { if (hata) { hata.textContent = m; hata.classList.remove("hidden"); } };
-  gizle();
+  authHataGoster("");
   durum(true, "Google doğrulanıyor…");
   try {
     const r = await api("/api/auth/google", { idToken: yanit.credential });
@@ -80,12 +143,13 @@ async function googleJetonuAl(yanit) {
     if (!r.ok) throw new Error(veri.error || "Giriş başarısız");
     SUNUCU.girisYapildi = true;
     SUNUCU.kullanici = veri.kullanici;
+    if (veri.kullanici?.plan) SUNUCU.plan = veri.kullanici.plan;
     authKapat();
     authUygula();
     planlariIsaretle();
     durum(true, "Hoş geldin, " + (veri.kullanici.ad || "") + " ✓");
   } catch (e) {
-    goster(String(e.message || e).slice(0, 140));
+    authHataGoster(String(e.message || e).slice(0, 140));
     durum(false);
   }
   setTimeout(() => durum(false), 2600);
@@ -113,14 +177,23 @@ function authUygula() {
     b.onclick = SUNUCU.girisYapildi ? cikisYap : authAc;
     b.setAttribute("aria-label", k ? "Çıkış yap: " + (k.ad || "") : "Giriş yap");
   }
-  // Auth modalındaki Google alanı. GIS betiği modal açılınca yüklenir (gisYukle).
+  // Auth modalı: hesap sistemi ana yöntem, Google yalnızca yapılandırılmışsa.
+  const izgara = $("girisIzgara");
   const kap = $("girisGoogleKutu");
+  const form = $("girisForm");
+  const hesapVar = SUNUCU.hesapAktif;
+
+  if (form) form.classList.toggle("hidden", !hesapVar);
+  $("girisSekmeler")?.classList.toggle("hidden", !hesapVar);
+
+  if (!hesapVar) {
+    authHataGoster(SUNUCU.yukleniyor ? "" : "Hesap sistemi şu anda kullanılamıyor. Misafir olarak devam edebilirsin.");
+  }
+
+  if (izgara) izgara.classList.toggle("hidden", !SUNUCU.googleAktif);
   if (kap) {
+    if (!SUNUCU.googleAktif) { kap.innerHTML = ""; return; }
     if (SUNUCU.yukleniyor) { kap.innerHTML = '<div class="giris-bekle">Bağlanıyor…</div>'; return; }
-    if (!SUNUCU.googleAktif) {
-      kap.innerHTML = '<p class="giris-hata">Google girişi sunucuda yapılandırılmamış. Yönetici ile iletişime geç.</p>';
-      return;
-    }
     if (window.google) googleGirisCiz();
     else kap.innerHTML = '<div class="giris-bekle">Google bağlanıyor…</div>';
   }
@@ -164,6 +237,9 @@ const L = {
     auth_baslik: "ZenAI'ye giriş yap", auth_alt: "Sohbetlerini kaydet, senkronize et ve tüm cihazlarında kullan.",
     auth_google: "Google ile devam et", auth_misafir: "Misafir olarak devam",
     auth_not: "Giriş yapmadan da kullanabilirsin — sohbetler yalnız bu cihazda saklanır.",
+    auth_kayit: "Kayıt ol", auth_kayit_btn: "Hesap oluştur", auth_giris_btn: "Giriş yap",
+    auth_kayit_baslik: "Ücretsiz hesap oluştur", auth_eposta: "E-posta", auth_sifre: "Şifre", auth_ad: "Ad",
+    auth_ad_ph: "Adın", auth_sifre_ph: "Şifre (en az 8 karakter)", auth_veya: "veya",
     giris_yap: "Giriş yap", gorsel_uretiliyor: "Görsel oluşturuluyor…",
     ses_dinle: "Konuşabilirsin…",
     planlar_btn: "Planlar ve fiyatlar", plan_yeni: "YENİ",
@@ -212,7 +288,7 @@ const L = {
     dil_degistir: "Dil değiştir", tema_degistir: "Tema değiştir",
     gizlilik: "Gizlilik", sartlar: "Şartlar", iletisim: "İletişim",
     gizlilik_baslik: "Gizlilik Politikası",
-    gizlilik_icerik: "<p>ZenAI kendi sunucusunda sohbet içeriği veya girdinizi saklamaz. Girdiler, cevap üretimi için sağlayıcıya iletilir.</p><p>Sohbetleriniz yalnız bu cihazda (tarayıcı yerel deposunda) tutulur; tarayıcı verilerini temizlediğinizde silinir.</p><p>API key'iniz sunucumuza gönderilmez, yalnız içinde bulunduğunuz oturumda doğrudan sağlayıcıya iletilir.</p>",
+    gizlilik_icerik: "<p>ZenAI kendi sunucusunda sohbet içeriği veya girdinizi saklamaz. Girdiler, cevap üretimi için sağlayıcıya iletilir.</p><p>Sohbetleriniz yalnız bu cihazda (tarayıcı yerel deposunda) tutulur; tarayıcı verilerini temizlediğinizde silinir.</p><p>API key'iniz sunucumuza gönderilmez, yalnız içinde bulunduğunuz oturumda doğrudan sağlayıcıya iletilir.</p><p><strong>Hesap verisi:</strong> Kayıt olursanız e-posta adresiniz, adınız ve şifrenizin scrypt ile geri döndürülemez bir özeti (hash) saklanır. Şifrenizin düz hali hiçbir yerde tutulmaz. Bu veriler sohbet içeriğinizi içermez ve ödeme bilgilerinizi içermez; ödemeniz doğrudan Stripe tarafından işlenir. Hesabınızın silinmesini isteyebilirsiniz.</p>",
     sartlar_baslik: "Kullanım Şartları",
     sartlar_icerik: "<p>ZenAI bir yapay zekâ asistanıdır; ürettiği bilgiler hatalı veya güncel olmayabilir. Önemli kararlarınızda doğrulama yapın.</p><p>Yasadışı içerik üretimi, telifli materyalin izinsiz kullanımı ve kötüye kullanım yasaktır.</p><p>Hizmet, veri'de aksama durumunda kesintisizlik garantisi vermez.</p>",
     iletisim_baslik: "İletişim",
@@ -231,6 +307,9 @@ const L = {
     auth_baslik: "Sign in to ZenAI", auth_alt: "Save your chats, sync them and use ZenAI on all your devices.",
     auth_google: "Continue with Google", auth_misafir: "Continue as guest",
     auth_not: "You can use ZenAI without signing in — chats are stored only on this device.",
+    auth_kayit: "Sign up", auth_kayit_btn: "Create account", auth_giris_btn: "Sign in",
+    auth_kayit_baslik: "Create a free account", auth_eposta: "Email", auth_sifre: "Password", auth_ad: "Name",
+    auth_ad_ph: "Your name", auth_sifre_ph: "Password (min 8 characters)", auth_veya: "or",
     giris_yap: "Sign in", gorsel_uretiliyor: "Generating image…",
     ses_dinle: "You can speak now…",
     planlar_btn: "Plans & pricing", plan_yeni: "NEW",
@@ -279,7 +358,7 @@ const L = {
     dil_degistir: "Change language", tema_degistir: "Toggle theme",
     gizlilik: "Privacy", sartlar: "Terms", iletisim: "Contact",
     gizlilik_baslik: "Privacy Policy",
-    gizlilik_icerik: "<p>ZenAI does not store your chat content or input on its own server. Inputs are forwarded to the provider to generate answers.</p><p>Your chats are kept only on this device (browser local storage); they are erased when you clear browser data.</p><p>Your API key is never sent to our server; during the session it is sent directly to the provider.</p>",
+    gizlilik_icerik: "<p>ZenAI does not store your chat content or input on its own server. Inputs are forwarded to the provider to generate answers.</p><p>Your chats are kept only on this device (browser local storage); they are erased when you clear browser data.</p><p>Your API key is never sent to our server; during the session it is sent directly to the provider.</p><p><strong>Account data:</strong> If you sign up we store your email address, your name, and a scrypt hash of your password that cannot be reversed into the original. Your plain password is never stored. This data does not include your chat content or your payment details; payments are handled directly by Stripe. You may request deletion of your account.</p>",
     sartlar_baslik: "Terms of Use",
     sartlar_icerik: "<p>ZenAI is an AI assistant; information it produces may be inaccurate or stale. Verify before making important decisions.</p><p>Generating illegal content, unauthorized use of copyrighted material and abuse are prohibited.</p><p>The service does not guarantee uninterrupted availability.</p>",
     iletisim_baslik: "Contact",
@@ -1762,6 +1841,10 @@ function authAc() {
   const m = $("authModal");
   if (!m) return;
   m.classList.remove("hidden");
+  authHataGoster("");
+  const sifreKutusu = $("girisSifre");
+  if (sifreKutusu) sifreKutusu.value = "";
+  authModAyarla("giris"); // her açılışta giriş sekmesinde başla
   gisYukle();
 }
 function authKapat() { const m = $("authModal"); if (m) m.classList.add("hidden"); }
@@ -1924,6 +2007,9 @@ function bagla() {
 
   // Auth (btnAuth bağlantısı authUygula() içinde onclick ile kurulur)
   if ($("girisMisafir")) $("girisMisafir").addEventListener("click", authKapat);
+  if ($("girisForm")) $("girisForm").addEventListener("submit", authGonder);
+  if ($("sekmeGiris")) $("sekmeGiris").addEventListener("click", () => authModAyarla("giris"));
+  if ($("sekmeKayit")) $("sekmeKayit").addEventListener("click", () => authModAyarla("kayit"));
   document.querySelectorAll("#authModal .modal-kutu").forEach((k) => k.addEventListener("click", (e) => e.stopPropagation()));
   if ($("authModal")) $("authModal").addEventListener("click", (e) => { if (e.target === $("authModal")) authKapat(); });
 

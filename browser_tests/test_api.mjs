@@ -26,6 +26,11 @@ const { default: health } = await import("../web/api/health.js");
 const { default: config } = await import("../web/api/config.js");
 const { default: google } = await import("../web/api/auth/google.js");
 const { default: logout } = await import("../web/api/auth/logout.js");
+const { default: kayit } = await import("../web/api/auth/kayit.js");
+const { default: giris } = await import("../web/api/auth/giris.js");
+const { hesapAc, girisDene, sifreOku, sifreDogrula, subUret, hesapSistemiVar,
+        basarisizSay, KILIT_PENCERE_MS } =
+  await import("../web/api/_lib/hesap.js");
 const { default: checkout } = await import("../web/api/billing/checkout.js");
 const { default: webhook } = await import("../web/api/billing/webhook.js");
 const { sifrele, dogrula, oturumSifresi, googleDogrula, planGetir, PLANLAR } =
@@ -162,6 +167,107 @@ console.log("\n▸ /api/auth/logout");
 res = sahteRes();
 await logout(req({}, { origin: "http://localhost:8899" }), res);
 ok("çerez temizleniyor (Max-Age<0)", /Max-Age=-\d+/.test(res.cireZ.join(";")));
+
+console.log("\n▸ E-posta + şifre hesap sistemi");
+const HE = "test-" + Date.now() + "@zenai.test";
+ok("hesap sistemi depo ile açık", hesapSistemiVar() === true);
+ok("sub üretimi deterministik", subUret(HE) === subUret(HE.toUpperCase()));
+ok("sub e-postayı sızdırmıyor", !subUret(HE).includes("@") && subUret(HE).length === 24);
+
+// Şifre kırımı
+const k = sifreOku("dogru-sifre-123");
+ok("şifre düz saklanmıyor", !JSON.stringify(k).includes("dogru-sifre-123"));
+ok("şifre doğru doğrulanıyor", sifreDogrula("dogru-sifre-123", k) === true);
+ok("yanlış şifre reddediliyor", sifreDogrula("dogru-sifre-124", k) === false);
+const k2 = sifreOku("dogru-sifre-123");
+ok("tuz rastgele (hash'ler farklı)", k.hash !== k2.hash && k.salt !== k2.salt);
+
+if (hesapSistemiVar()) {
+  // Kayıt
+  res = sahteRes();
+  await kayit(req({ email: HE, sifre: "guclu-sifre-1", ad: "Test Kullanici" }, { method: "POST", origin: "http://localhost:8899" }), res);
+  ok("kayıt 200", res.kod === 200);
+  ok("kayıt oturum çerezi veriyor", /zenai_oturum=/.test(res.cireZ.join(";")));
+  ok("kayıt çerezi HttpOnly", /HttpOnly/.test(res.cireZ.join(";")));
+  ok("kayıt planı free", res.govde?.kullanici?.plan?.kod === "free");
+
+  // Aynı e-posta ikinci kez kaydedilemez (ezilmez)
+  res = sahteRes();
+  await kayit(req({ email: HE, sifre: "baska-sifre-99" }, { method: "POST", origin: "http://localhost:8899" }), res);
+  ok("tekrar kayıt engelleniyor", res.kod === 409);
+  res = sahteRes();
+  await giris(req({ email: HE, sifre: "baska-sifre-99" }, { method: "POST", origin: "http://localhost:8899" }), res);
+  ok("ikinci kayıt şifresi kabul edilmiyor", res.kod === 401);
+  res = sahteRes();
+  await giris(req({ email: HE, sifre: "guclu-sifre-1" }, { method: "POST", origin: "http://localhost:8899" }), res);
+  ok("ilk şifre hâlâ geçerli (ezilmedi)", res.kod === 200);
+
+  // Doğrulama kuralları
+  for (const [ad, govde, kod] of [
+    ["geçersiz e-posta 400", { email: "bozuk", sifre: "guclu-sifre-1" }, 400],
+    ["kısa şifre 400", { email: HE + "x", sifre: "kisa" }, 400],
+    ["tahmin edilebilir şifre 400", { email: HE + "y", sifre: "password" }, 400],
+  ]) {
+    res = sahteRes();
+    await kayit(req(govde, { method: "POST", origin: "http://localhost:8899" }), res);
+    ok(ad, res.kod === kod);
+  }
+
+  // Giriş
+  res = sahteRes();
+  await giris(req({ email: HE, sifre: "guclu-sifre-1" }, { method: "POST", origin: "http://localhost:8899" }), res);
+  ok("doğru şifreyle giriş 200", res.kod === 200);
+  const girisCerez = res.cireZ.join(";");
+  res = sahteRes();
+  await giris(req({ email: HE, sifre: "yanlis-sifre" }, { method: "POST", origin: "http://localhost:8899" }), res);
+  ok("yanlış şifre 401", res.kod === 401);
+  ok("kullanıcı varlığı sızdırılmıyor", /E-posta veya şifre hatalı/.test(res.govde?.error || ""));
+  res = sahteRes();
+  await giris(req({ email: "yok-boyle-bir-kullanici@zenai.test", sifre: "guclu-sifre-1" }, { method: "POST", origin: "http://localhost:8899" }), res);
+  ok("olmayan kullanıcı da aynı mesajı veriyor", /E-posta veya şifre hatalı/.test(res.govde?.error || ""));
+  res = sahteRes();
+  await giris(req({ email: HE, sifre: "guclu-sifre-1" }, { method: "GET" }), res);
+  ok("GET 405", res.kod === 405);
+
+  // Brute-force kilidi. Sayaç depoda tutulduğu için denemeler arasında kısa bir
+  // bekleme var: yazmanın yayılması gerçek bir saldırganın hızından da uzun.
+  // Sayaç TEK YÖNLÜ olmalı: her hatalı deneme sayıyı artırır, asla düşürmez.
+  // (Regresyon koruması: kayıt üzerinde "oku-değiştir-yaz" yapıldığında depo
+  //  gecikmesi yüzünden sayaç 1→2→2→5 diye GERİYE gidiyordu.)
+  let deneme = 0, sonSayi = 0, tekYonlu = true;
+  for (; deneme < 15; deneme++) {
+    const sayi = (await basarisizSay(subUret(HE))).sayi;
+    if (sayi < sonSayi) tekYonlu = false;
+    sonSayi = sayi;
+    res = sahteRes();
+    await giris(req({ email: HE, sifre: "hatali-" + deneme }, { method: "POST", origin: "http://localhost:8899" }), res);
+    if (res.kod === 429) break;
+    await bekle(300);
+  }
+  ok("hatalı deneme sayısı hiç azalmıyor", tekYonlu);
+  ok("çok hatalı denemeden sonra kilit 429", res.kod === 429);
+  ok("kilit makul sayıda denemede devreye giriyor", deneme < 15);
+  res = sahteRes();
+  await giris(req({ email: HE, sifre: "guclu-sifre-1" }, { method: "POST", origin: "http://localhost:8899" }), res);
+  ok("kilitliyken doğru şifre de reddediliyor", res.kod === 429);
+  ok("429 yanıtı süre bildiriyor", /dakika sonra/.test(res.govde?.error || ""));
+
+  // KALICI KİLİT OLMAMALI: pencere dolunca hesap yeniden açılabilmeli.
+  // simdi parametresi sayesinde gerçek 15 dakika beklenmeden test edilebilir.
+  const ileri = Date.now() + KILIT_PENCERE_MS + 60000;
+  ok("pencere dışındaki denemeler sayılmıyor", (await basarisizSay(subUret(HE), ileri)).sayi === 0);
+  const sonra = await girisDene({ email: HE, sifre: "guclu-sifre-1" }, ileri);
+  ok("kilit süresi dolunca hesap tekrar açılıyor", !sonra.hata && !!sonra.kayit);
+  ok("başarılı giriş sonGiris damgalıyor", !!sonra.kayit?.sonGiris);
+  const kotu = await girisDene({ email: HE, sifre: "dogru-sifre-1" });
+  ok("pencere içindeyken doğru şifre hâlâ 429", kotu.kod === 429);
+
+  // Depoda şifre tuz/hash olarak, düz değil
+  const kayitli = await hesapAc({ email: "deneme-" + Date.now() + "@zenai.test", sifre: "deneme-sifre-1" });
+  ok("hesapAc kayıt döndürüyor", !kayitli.hata && !!kayitli.kayit);
+} else {
+  console.log("  (hesap testleri atlandi: BLOB_READ_WRITE_TOKEN tanimli degil)");
+}
 
 console.log("\n▸ /api/billing/checkout");
 res = sahteRes();

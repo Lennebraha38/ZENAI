@@ -1,8 +1,7 @@
 // Abonelik planı için kalıcı depo — Vercel Blob (private store) veya Upstash.
 //
-// Neden Vercel Blob: kullanıcının Vercel hesabı zaten var, ayrıca Upstash/veritabanı
-// hesabı açmaya gerek kalmıyor. Sunucusuz (serverless) ortamda bellek kalıcı değildir;
-// ödeme webhook'u planı burada saklar, diğer uç noktalar buradan okur.
+// Sunucusuz (serverless) ortamda bellek kalıcı değildir; ödeme webhook'u planı
+// burada saklar, diğer uç noktalar buradan okur.
 //
 // GEREKSİNİM (Vercel ortam değişkeni):
 //   BLOB_READ_WRITE_TOKEN -> `vercel blob create-store <ad> --access private --yes`
@@ -14,71 +13,17 @@
 // döner ki Stripe yeniden denesin — sessizce kayıp yazmak, kullanıcıya ücretli
 // olduğu halde bedava göstermekten çok daha kötüdür.
 
-const BLOB_TOKEN = process.env.BLOB_READ_WRITE_TOKEN;
+import { BLOB_OKUNUR, yolOku, yolYaz } from "./blob.js";
+
 const UP_URL = process.env.UPSTASH_REDIS_REST_URL;
 const UP_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
 
-const blobVar = !!BLOB_TOKEN;
-const upstashVar = !blobVar && !!(UP_URL && UP_TOKEN);
+const upstashVar = !BLOB_OKUNUR && !!(UP_URL && UP_TOKEN);
 
-export const depoVar = blobVar || upstashVar;
-export const depoTuru = blobVar ? "vercel-blob" : upstashVar ? "upstash" : "yok";
+export const depoVar = BLOB_OKUNUR || upstashVar;
+export const depoTuru = BLOB_OKUNUR ? "vercel-blob" : upstashVar ? "upstash" : "yok";
 
-const ONEKI = "zenai/plan/";
-const anahtar = (sub) => ONEKI + String(sub || "").replace(/[^A-Za-z0-9._-]/g, "_") + ".json";
-
-const OZ = { token: BLOB_TOKEN, access: "private" };
-
-// ── Vercel Blob ──────────────────────────────────────────
-let sdk = null;
-async function blobSdk() {
-  if (!sdk) {
-    const m = await import("@vercel/blob");
-    sdk = { put: m.put, head: m.head };
-  }
-  return sdk;
-}
-
-async function blobYaz(sub, plan) {
-  const { put } = await blobSdk();
-  await put(anahtar(sub), JSON.stringify({ plan, at: new Date().toISOString() }), {
-    ...OZ,
-    addRandomSuffix: 0,
-    allowOverwrite: true,
-  });
-  return true;
-}
-
-// Private store'da SDK'nin get()'i stream döndürmez (stream: null) — yetkili
-// indirme adresini head() ile alıp Bearer token ile fetch etmek gerekir.
-async function blobOku(sub) {
-  const { head } = await blobSdk();
-  let url;
-  try {
-    const h = await head(anahtar(sub), { token: BLOB_TOKEN });
-    if (!h) return null;
-    url = h.downloadUrl || h.url;
-  } catch {
-    return null; // kayıt yok -> çağıran varsayılana düşer
-  }
-  if (!url) return null;
-  // ÖNEMLİ: private blob GET'i önbelleğe alınıyor. Kullanıcı ödeme yapıp sayfayı
-  // yenilediğinde planı ESKİ görmemeli, yoksa "ödedim ama ücretsiz görünüyorum"
-  // durumu oluşur. Bu yüzden her okumada önbellek kırıcı eklenir (veri birkaç
-  // yüz bayt, maliyeti ihmal edilebilir).
-  const ayirici = url.includes("?") ? "&" : "?";
-  const r = await fetch(url + ayirici + "_t=" + Date.now(), {
-    headers: { Authorization: `Bearer ${BLOB_TOKEN}`, "Cache-Control": "no-cache" },
-  });
-  if (!r.ok) return null;
-  try {
-    const j = JSON.parse(await r.text());
-    return j?.plan || null;
-  } catch {
-    return null;
-  }
-}
-
+const yol = (sub) => `plan/${String(sub || "").replace(/[^A-Za-z0-9._-]/g, "_")}.json`;
 
 // ── Upstash REST (geriye dönük uyum) ─────────────────────
 async function upCmd(...parcalar) {
@@ -96,8 +41,8 @@ async function upCmd(...parcalar) {
 export async function planYaz(sub, plan) {
   if (!sub || !depoVar) return false;
   try {
-    if (blobVar) return await blobYaz(sub, plan);
-    await upCmd("SET", anahtar(sub), plan, "EX", 60 * 60 * 24 * 400);
+    if (BLOB_OKUNUR) await yolYaz(yol(sub), { plan, at: new Date().toISOString() });
+    else await upCmd("SET", yol(sub), plan, "EX", 60 * 60 * 24 * 400);
     return true;
   } catch {
     return false;
@@ -106,10 +51,9 @@ export async function planYaz(sub, plan) {
 
 // İptal / askıya alma -> planı "free" yaz.
 //
-// NORMALDE SİLME YAPMIYORUZ: Vercel Blob'da silinen bir yolun tekrar yazılması
-// tombstone birikimi yüzünden "yazıldı ama okunmuyor" durumuna düşüyor (head var
-// diyor, GET 404). Bu, "iptal et -> yeniden abone ol" akışını sessizce bozardı.
-// Bu yüzden kayıt her zaman var olur, yalnızca değeri değişir.
+// Kayıt SİLİNMEZ: Vercel Blob'da silinen bir yolun tekrar yazılması tombstone
+// birikimi yüzünden "yazıldı ama okunmuyor" durumuna düşüyor (head var diyor,
+// GET 404). Bu, "iptal et -> yeniden abone ol" akışını sessizce bozardı.
 export async function planSifirla(sub) {
   return planYaz(sub, "free");
 }
@@ -118,11 +62,11 @@ export async function planSifirla(sub) {
 export async function planOku(sub, varsayilan) {
   if (!sub || !depoVar) return varsayilan;
   try {
-    if (blobVar) {
-      const v = await blobOku(sub);
-      return typeof v === "string" && v ? v : varsayilan;
+    if (BLOB_OKUNUR) {
+      const j = await yolOku(yol(sub));
+      return typeof j?.plan === "string" && j.plan ? j.plan : varsayilan;
     }
-    const v = await upCmd("GET", anahtar(sub));
+    const v = await upCmd("GET", yol(sub));
     return typeof v === "string" && v ? v : varsayilan;
   } catch {
     return varsayilan;

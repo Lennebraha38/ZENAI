@@ -1,8 +1,14 @@
 # ZenAI — Gerçek Kimlik Doğrulama ve Abonelik Kurulumu
 
-Kod tamam ve test edildi (62/62 birim testi). Aşağıdaki ortam değişkenleri
-Vercel'de tanımlanmadan Google girişi ve ödeme **bilinçli olarak kapalı** kalır
+Kod tamam ve test edildi (94/94 birim testi). Aşağıdaki ortam değişkenleri
+Vercel'de tanımlanmadan hesap sistemi ve ödeme **bilinçli olarak kapalı** kalır
 ve arayüz bunu dürüstçe bildirir.
+
+**Giriş nasıl çalışıyor?** Varsayılan yol kendi hesap sistemimiz: kullanıcı
+e-posta + şifreyle kaydolur (`/api/auth/kayit`, `/api/auth/giris`). Ek bir
+Google Cloud projesi **gerekmez**. Google girişi isteğe bağlı bir alternatiftir;
+`GOOGLE_CLIENT_ID` tanımlıysa arayüzde ek olarak görünür, tanımlı değilse hiç
+gösterilmez.
 
 ## 1. Vercel'e eklenmesi gereken değişkenler
 
@@ -11,8 +17,9 @@ Vercel → Proje (`zenai`) → Settings → Environment Variables
 | Değişken | Zorunlu | Nerede bulunur | Örnek |
 |---|---|---|---|
 | `SESSION_SECRET` | evet | Kendin üret | `openssl rand -base64 48` |
-| `GOOGLE_CLIENT_ID` | evet | Google Cloud Console → OAuth 2.0 Client ID | `1234...apps.googleusercontent.com` |
-| `STRIPE_SECRET_KEY` | evet | Stripe Dashboard → API keys → Secret key | `sk_live_...` |
+| `BLOB_READ_WRITE_TOKEN` | evet | `vercel blob create-store` (aşağıda) | `vercel_blob_rw_...` |
+| `GOOGLE_CLIENT_ID` | **hayır** | İsteğe bağlı. Google girişi isteniyorsa | `1234...apps.googleusercontent.com` |
+| `STRIPE_SECRET_KEY` | evet (ödeme için) | Stripe Dashboard → API keys → Secret key | `sk_live_...` |
 | `STRIPE_WEBHOOK_SECRET` | evet | Stripe → Webhooks → endpoint → Signing secret | `whsec_...` |
 | `STRIPE_PRICE_SILVER` | evet | Stripe → Products → Prices → ID | `price_...` |
 | `STRIPE_PRICE_GOLD` | evet | aynı | `price_...` |
@@ -22,17 +29,24 @@ Vercel → Proje (`zenai`) → Settings → Environment Variables
 | `OPENROUTER_KEY` | evet | OpenRouter → API keys | `sk-or-...` |
 
 > **`BLOB_READ_WRITE_TOKEN` neden gerekli?** Sunucusuz (serverless) ortamda
-> kalıcı bellek yoktur; webhook planı bir yere yazmak zorundadır. Proje
-> **Vercel Blob** (private store) kullanır — ayrıca bir veritabanı hesabı
-> açmaya gerek yoktur, Vercel hesabı yeterlidir. Depo kurulu değilse webhook
-> 500 döner; bu **bilinçlidir** (Stripe olayı yeniden denesin diye). Sessizce
-> kayıp yazılsaydı kullanıcı ödeme yapmış ama ücretsiz kalırdı.
+> kalıcı bellek yoktur. Aynı depo iki şeyi tutar:
+>
+> 1. **Hesaplar** — e-posta + şifre kayıtları (`user/<sub>.json`)
+> 2. **Abonelik planları** — Stripe webhook'unun yazdığı gerçek plan
+>
+> Ayrıca bir veritabanı hesabı açmaya gerek yoktur, Vercel hesabı yeterlidir.
+> Depo kurulu değilse hesap sistemi kendini kapatır (`hesapAktif: false`) ve
+> webhook 500 döner; bu **bilinçlidir** (Stripe olayı yeniden denesin diye).
+> Sessizce kayıp yazılsaydı kullanıcı ödeme yapmış ama ücretsiz kalırdı.
 >
 > Depo kuruluysa `/api/config` çıktısında `depoVar: true` görünür.
 > `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` tanımlıysa geriye
 > dönük uyum için Upstash de kullanılır (tercih sırası: Blob > Upstash).
 
-## 2. Google Cloud Console
+## 2. Google Cloud Console — İSTEĞE BAĞLI
+
+Bu bölümü **atlayabilirsiniz.** Google girişi zorunlu değildir; e-posta + şifre
+yeterlidir. Yalnızca "Google ile devam et" düğmesini de görmek isterseniz:
 
 1. [console.cloud.google.com](https://console.cloud.google.com) → proje oluştur
 2. **APIs & Services → Credentials → Create Credentials → OAuth client ID**
@@ -44,6 +58,9 @@ Vercel → Proje (`zenai`) → Settings → Environment Variables
 6. Client ID'yi `GOOGLE_CLIENT_ID` olarak ekle
 7. **OAuth consent screen**'de uygulama yayına alınmadıysa test kullanıcıları
    ekle (kendi Google hesabın) veya "In production" seç
+
+Bu değişken tanımlı değilse arayüz Google düğmesini hiç göstermez; e-posta +
+şifre çalışmaya devam eder.
 
 ## 3. Stripe
 
@@ -66,7 +83,7 @@ kurulur ve `BLOB_READ_WRITE_TOKEN` değişkenini **otomatik** ekler:
 
 ```bash
 cd web
-vercel blob create-store zenai-plan --access private --yes
+vercel blob create-store zenai-plan --access private --yes   # mevcut depo: zenai-plan2
 ```
 
 Doğrulama:
@@ -88,24 +105,57 @@ Bu uç nokta **gizli anahtar içermez**. Şunları doğrulaması gerekir:
 
 ```json
 {
-  "googleAktif": true,
-  "odemeAktif": true,
+  "hesapAktif": true,
+  "googleAktif": false,
+  "odemeAktif": false,
   "depoVar": true,
   "girisYapildi": false,
   "plan": { "kod": "free", "ad": "Free", "maxToken": 8192 }
 }
 ```
 
-`depoVar: false` ise abonelik satın alınamaz — webhook planı kaydedemez.
+- `hesapAktif: false` → e-posta + şifre kaydı açılmamış; sadece misafir modu çalışır.
+  Açmak için `BLOB_READ_WRITE_TOKEN` tanımlı olmalı.
+- `depoVar: false` → abonelik satın alınamaz, webhook planı kaydedemez.
+- `odemeAktif: false` → Stripe değişkenleri eksik; plan satın alma düğmeleri
+  pasif kalır (e-posta + şifre çalışmaya devam eder).
+
+## 6. E-posta + şifre hesap sistemi — ZATEN KURULU
+
+Ayrıca hiçbir şey yapmanız gerekmiyor; yalnızca `BLOB_READ_WRITE_TOKEN` yeterli.
+
+| Uç nokta | Ne yapar |
+|---|---|
+| `POST /api/auth/kayit` | Yeni hesap açar, oturum çerezi verir. Aynı e-posta ikinci kez kaydedilemez (409) — mevcut hesap **ezilmez**. |
+| `POST /api/auth/giris` | E-posta + şifre doğrular, oturum çerezi verir. |
+| `POST /api/auth/logout` | Oturumu kapatır. |
+
+Bilinen sınırlar (bilinçli tercih): e-posta doğrulama ve şifre sıfırlama **yok**.
+Kullanıcı şifresini unutursa hesabı manuel olarak sıfırlamak gerekir.
+
+### Güvenlik davranışı
+
+- Şifre asla düz saklanmaz: **scrypt** (N=16384) + 16 baytlık rastgele tuz.
+- Kullanıcı numarası (`sub`), e-postanın SHA-256 özetidir → e-posta hiçbir dosya
+  adında görünmez.
+- Giriş hatası **her zaman** aynı mesajı döner ("E-posta veya şifre hatalı");
+  kullanıcının var olup olmadığı sızdırılmaz.
+- Kaba kuvvet koruması: 8 hatalı denemede hesap **15 dakika** kilitlenir (HTTP 429).
+  Sayaç, gecikmeli okuma yüzünden geriye gidemeyecek şekilde **her deneme için
+  ayrı bir kayıt** olarak tutulur; pencere dolunca kilit kendiliğinden açılır
+  (kalıcı kilitlenme yok).
 
 ## Güvenlik notları
 
 - `STRIPE_SECRET_KEY`, `OPENROUTER_KEY`, `SESSION_SECRET` **asla** istemciye dönülmez.
   `/api/config` yalnızca `googleAktif`/`odemeAktif` gibi bayraklar ve kullanıcının
   kendi adı/epostası/avatarı döner.
-- Google ID token'ı **sunucuda** JWKS/RS256 ile doğrulanır; `aud`, `iss`, `exp`,
-  `email_verified` kontrol edilir. İstemciden gelen e-posta veya plana asla
-  güvenilmez.
+- Google ID token'ı (Google girişi açıksa) **sunucuda** JWKS/RS256 ile
+  doğrulanır; `aud`, `iss`, `exp`, `email_verified` kontrol edilir. İstemciden
+  gelen e-posta veya plana asla güvenilmez.
+- Depo gecikmeli (eventually consistent) çalıştığı için **güvenlik sayaçları
+  asla "oku → değiştir → yaz" ile tutulmaz**; her olay ayrı bir anahtar olarak
+  eklenir. Yazma hataları sessizce yutulmaz, `console.error`'a düşer.
 - Plan yetkisi **yalnızca** imzası doğrulanmış Stripe webhook'u ile yazılır.
 - Çerez `HttpOnly` + `SameSite=Lax` + production'da `Secure`; imzası
   `timingSafeEqual` ile kontrol edilir.

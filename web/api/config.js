@@ -9,6 +9,8 @@ export default async function handler(req, res) {
   const kod = await planOku(oturum?.sub, oturum?.plan || "free");
   const plan = planGetir(kod);
   res.json({
+    // Google opsiyonel: hesap sistemi kendi başına çalışır.
+    hesapAktif: depoVar,
     googleClientId: process.env.GOOGLE_CLIENT_ID || "",
     googleAktif: !!process.env.GOOGLE_CLIENT_ID,
     odemeAktif: !!process.env.STRIPE_SECRET_KEY,

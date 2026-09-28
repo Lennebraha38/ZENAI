@@ -1553,6 +1553,61 @@ html[data-tema="aydinlik"] .morph-tetik::before {
   min-height: 44px; width: 100%;
 }
 .giris-google-kutu > div { width: 100%; display: flex; justify-content: center; }
+
+/* ── E-posta + şifre giriş formu ── */
+.giris-sekmeler {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 4px;
+  padding: 4px; margin: 0 0 16px;
+  background: var(--srf-2); border: 1px solid var(--cik-1);
+  border-radius: 12px;
+}
+.giris-sekmeler .sekme {
+  appearance: none; border: 0; cursor: pointer;
+  padding: 9px 10px; border-radius: 9px;
+  font: inherit; font-size: 13.5px; font-weight: 600;
+  color: var(--zk-2); background: transparent;
+  transition: background .18s ease, color .18s ease;
+}
+.giris-sekmeler .sekme:hover { color: var(--zk-1); }
+.giris-sekmeler .sekme.aktif {
+  color: var(--zk-1);
+  background: var(--srf-3);
+  box-shadow: 0 1px 3px rgba(0,0,0,.18);
+}
+.giris-sekmeler .sekme:focus-visible { outline: 2px solid var(--ana); outline-offset: 1px; }
+
+.giris-form { display: grid; gap: 10px; text-align: left; margin-bottom: 12px; }
+.giris-ad-sar { display: grid; }
+.giris-input {
+  width: 100%; font: inherit; font-size: 14.5px;
+  padding: 12px 14px; border-radius: 12px;
+  color: var(--zk-1); background: var(--srf-2);
+  border: 1px solid var(--cik-1);
+  transition: border-color .18s ease, box-shadow .18s ease;
+}
+.giris-input::placeholder { color: var(--zk-3); }
+.giris-input:focus {
+  outline: none; border-color: var(--ana);
+  box-shadow: 0 0 0 3px rgba(126,180,255,.16);
+}
+.giris-input:focus-visible { outline: 2px solid var(--ana); outline-offset: 1px; }
+.giris-btn.birincil {
+  margin-top: 4px; width: 100%; cursor: pointer;
+  font-weight: 600; font-size: 14.5px;
+  background: linear-gradient(135deg, #6ee7d7, #7eb8ff);
+  color: #04121c; border-color: transparent;
+}
+.giris-btn.birincil:hover { filter: brightness(1.05); }
+.giris-btn.birincil:disabled { opacity: .65; cursor: progress; transform: none; }
+
+.giris-ayirac {
+  display: flex; align-items: center; gap: 12px;
+  color: var(--zk-3); font-size: 12px; margin: 2px 0 12px;
+}
+.giris-ayirac::before, .giris-ayirac::after {
+  content: ""; flex: 1; height: 1px; background: var(--cik-1);
+}
+
 .giris-bekle {
   color: var(--zk-3); font-size: 13.5px; padding: 11px 0; text-align: center;
 }
@@ -1564,6 +1619,8 @@ html[data-tema="aydinlik"] .morph-tetik::before {
 html[data-tema="aydinlik"] .giris-hata {
   color: #a32020; background: rgba(220,60,60,.08); border-color: rgba(220,60,60,.25);
 }
+html[data-tema="aydinlik"] .giris-input { background: #fff; }
+html[data-tema="aydinlik"] .giris-sekmeler { background: #eef2f9; }
 
 /* Giriş yapmış kullanıcı rozeti */
 #btnAuth.girisli { gap: 8px; padding-left: 6px; }
