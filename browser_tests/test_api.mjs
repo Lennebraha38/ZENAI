@@ -107,6 +107,10 @@ let res = sahteRes();
 await config(req({}, { origin: "http://localhost:8899" }), res);
 const c = res.govde;
 ok("200 döner", res.kod === 200);
+ok("gizli anahtar sızmıyor", !JSON.stringify(c).match(/sk-|sk-or-|vercel_blob|whsec/));
+ok("plan şekli doğru", c.plan && typeof c.plan.kod === "string" && typeof c.plan.maxToken === "number");
+ok("misafirde kullanici null", c.kullanici === null);
+ok("hesapAktif bildiriliyor", typeof c.hesapAktif === "boolean");
 
 console.log("\n▸ /api/health");
 res = sahteRes();
@@ -190,6 +194,16 @@ if (hesapSistemiVar()) {
   ok("kayıt oturum çerezi veriyor", /zenai_oturum=/.test(res.cireZ.join(";")));
   ok("kayıt çerezi HttpOnly", /HttpOnly/.test(res.cireZ.join(";")));
   ok("kayıt planı free", res.govde?.kullanici?.plan?.kod === "free");
+
+  // OTURUMLU /api/config: kullanici.plan nesne olmalı. String dönerse istemci
+  // bunu SUNUCU.plan'a yazıp plan.kod'u undefined buluyor (regresyon).
+  const oturumCerez = (res.cireZ.join("; ").match(/zenai_oturum=([^;]+)/) || [])[1] || "";
+  res = sahteRes();
+  await config(req({}, { origin: "http://localhost:8899", headers: { cookie: `zenai_oturum=${oturumCerez}` } }), res);
+  ok("oturumlu config kullaniciyi tanıyor", res.kod === 200 && res.govde?.girisYapildi === true);
+  ok("oturumlu kullanici.plan nesne", typeof res.govde?.kullanici?.plan === "object");
+  ok("oturumlu kullanici.plan.kod dolu", res.govde?.kullanici?.plan?.kod === "free");
+  ok("oturumlu maxToken okunuyor", res.govde?.kullanici?.plan?.maxToken === 8192);
 
   // Aynı e-posta ikinci kez kaydedilemez (ezilmez)
   res = sahteRes();

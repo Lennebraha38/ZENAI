@@ -16,8 +16,12 @@ export default async function handler(req, res) {
     odemeAktif: !!process.env.STRIPE_SECRET_KEY,
     depoVar,
     girisYapildi: !!oturum,
+    // kullanici.plan, üst düzey "plan" ile AYNI şekilde nesnedir. Daha önce
+    // yalnızca adı (string) dönüyordu; istemci bunu SUNUCU.plan'a yazınca
+    // plan.kod undefined kalıyor ve ücretli kullanıcı kendine Free görünüyordu.
     kullanici: oturum
-      ? { eposta: oturum.eposta, ad: oturum.ad, avatar: oturum.avatar, plan: plan.ad }
+      ? { eposta: oturum.eposta, ad: oturum.ad, avatar: oturum.avatar,
+          plan: { kod, ad: plan.ad, maxToken: plan.maxToken } }
       : null,
     plan: { kod, ad: plan.ad, maxToken: plan.maxToken },
     planlar: Object.entries(PLANLAR).map(([k, p]) => ({
