@@ -27,17 +27,33 @@ export function epostaNormalize(email) {
   return String(email || "").trim().toLowerCase();
 }
 
-export function sifreOku(sifre) {
+// scrypt parametreleri. N=16384 varsayılanın 16 katı: bir tane lambda'da
+// kaba kuvvet denemesini pahalılaştırırken sunucusuz işlem süresini de
+// makul tutar.
+const SCRYPT = { N: 16384, r: 8, p: 1 };
+
+// crypto.scrypt'in geri çağırma imzası (hata, turetilmis) — SIRA ÖNEMLİ.
+// Ters yazılırsa türetilmiş anahtar (bir Buffer) hata sanılır ve reddedilir.
+const scryptAsync = (sifre, tuz) =>
+  new Promise((coz, reddet) => {
+    crypto.scrypt(String(sifre), tuz, 64, SCRYPT, (hata, turetilmis) =>
+      hata ? reddet(hata) : coz(turetilmis)
+    );
+  });
+
+export async function sifreOku(sifre) {
   const tuz = crypto.randomBytes(16);
-  const turetilmis = crypto.scryptSync(String(sifre), tuz, 64, { N: 16384, r: 8, p: 1 });
+  // ASYNC: scryptSync ~60-100ms sürüyor ve node'un olay döngüsünü tamamen
+  // bloke ediyor; aynı anda başka bir istek bekleyemiyor.
+  const turetilmis = await scryptAsync(String(sifre), tuz);
   return { hash: turetilmis.toString("base64"), salt: tuz.toString("base64") };
 }
 
-export function sifreDogrula(sifre, kayit) {
+export async function sifreDogrula(sifre, kayit) {
   if (!kayit?.hash || !kayit?.salt) return false;
   let turetilmis;
   try {
-    turetilmis = crypto.scryptSync(String(sifre), Buffer.from(kayit.salt, "base64"), 64, { N: 16384, r: 8, p: 1 });
+    turetilmis = await scryptAsync(String(sifre), Buffer.from(kayit.salt, "base64"));
   } catch {
     return false;
   }
@@ -75,7 +91,7 @@ export async function hesapAc({ email, sifre, ad }) {
   const eposta = epostaNormalize(email);
   const sub = subUret(eposta);
   if (await yolOku(yol(sub))) return { hata: "Bu e-posta zaten kayıtlı" };
-  const { hash, salt } = sifreOku(sifre);
+  const { hash, salt } = await sifreOku(sifre);
   const kayit = {
     sub,
     eposta,
@@ -123,7 +139,7 @@ export async function girisDene({ email, sifre }, simdi = Date.now()) {
     };
   }
 
-  if (!sifreDogrula(sifre, kayit)) {
+  if (!(await sifreDogrula(sifre, kayit))) {
     try {
       await yolEkle(`${basarisizYol(sub)}/${simdi}`, { z: simdi });
     } catch (e) {

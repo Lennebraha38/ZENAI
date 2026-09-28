@@ -8,6 +8,15 @@ const MAKS_PROMPT = 2000;      // karakter
 const MAKS_YANIT = 16;         // 60 sn'de IP başına görsel üretimi
 const MAKS_ONIZ = 16 * 1024 * 1024; // dönen görselin karakter üst sınırı
 
+// Görsel modeline istenecek AZAMİ token sayısı.
+//
+// NEDEN 16384 DEĞİL: OpenRouter istenen azami token'ın HESABIN KREDİSİYLE
+// karşılanabileceğini baştan denetler. 16384 istendiğinde bu hesabın bütçesi
+// yetmediği için istek HİÇ ÇALIŞMADAN reddediliyordu ("you can only afford
+// 3262") ve görsel üretimi tamamen bozuktu. Tek bir 1:1 görsel ~1-1.5K token
+// tutar; 3000 hem bütçeye sığar hem görseli kesmez.
+const MAKS_TOKEN = Number(process.env.OPENROUTER_IMAGE_MAX_TOKENS) || 3000;
+
 // ── CORS: sadece izin verilen kökler ──
 function izinliOrigin(req) {
   const izin = (process.env.ZENAI_ORIGIN || "https://zenai-two.vercel.app")
@@ -86,12 +95,19 @@ export default async function handler(req, res) {
         model: MODEL,
         messages: [{ role: "user", content: p }],
         modalities: ["image"],
-        max_tokens: 16384,
+        max_tokens: MAKS_TOKEN,
       }),
     });
     const data = await r.json();
     if (!r.ok) {
       const hm = data?.error?.message || data?.message || JSON.stringify(data).slice(0, 300);
+      // Kredi yetersizliği en sık karşılaşılan hatadır; ham OpenRouter metni
+      // kullanıcıya hiçbir şey ifade etmiyor.
+      if (/requires more credits|can only afford|insufficient.*credit/i.test(hm)) {
+        return res.status(402).json({
+          error: "Görsel üretimi için OpenRouter kredisi yetersiz. openrouter.ai → Settings → Credits bölümünden bakiye yükle (veya OPENROUTER_IMAGE_MAX_TOKENS değerini düşür).",
+        });
+      }
       return res.status(r.status).json({ error: hm });
     }
 

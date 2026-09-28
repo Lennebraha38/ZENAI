@@ -179,11 +179,11 @@ ok("sub üretimi deterministik", subUret(HE) === subUret(HE.toUpperCase()));
 ok("sub e-postayı sızdırmıyor", !subUret(HE).includes("@") && subUret(HE).length === 24);
 
 // Şifre kırımı
-const k = sifreOku("dogru-sifre-123");
+const k = await sifreOku("dogru-sifre-123");
 ok("şifre düz saklanmıyor", !JSON.stringify(k).includes("dogru-sifre-123"));
-ok("şifre doğru doğrulanıyor", sifreDogrula("dogru-sifre-123", k) === true);
-ok("yanlış şifre reddediliyor", sifreDogrula("dogru-sifre-124", k) === false);
-const k2 = sifreOku("dogru-sifre-123");
+ok("şifre doğru doğrulanıyor", (await sifreDogrula("dogru-sifre-123", k)) === true);
+ok("yanlış şifre reddediliyor", (await sifreDogrula("dogru-sifre-124", k)) === false);
+const k2 = await sifreOku("dogru-sifre-123");
 ok("tuz rastgele (hash'ler farklı)", k.hash !== k2.hash && k.salt !== k2.salt);
 
 if (hesapSistemiVar()) {

@@ -1,6 +1,7 @@
 // Google girişi: istemcinin gönderdiği ID token'ı Google JWKS ile doğrular,
 // sonra imzalı oturum çerezi verir. İstemciden gelen e-posta/plan ASLA güvenilmez.
-import { corsUygula, googleDogrula, sifrele, cerezAyarla, oturumSifresi } from "../_lib/auth.js";
+import { corsUygula, googleDogrula, sifrele, cerezAyarla, oturumSifresi, planGetir } from "../_lib/auth.js";
+import { planOku } from "../_lib/store.js";
 
 export default async function handler(req, res) {
   if (corsUygula(req, res)) return;
@@ -38,9 +39,20 @@ export default async function handler(req, res) {
       sifre
     );
     cerezAyarla(res, "zenai_oturum", jeton, 30);
+    // Gerçek plan çerezdekinden üstündür: depodan okunur. Yanıt da e-posta +
+    // şifre girişiyle AYNI şekilde nesne döner. (Eskiden plan: "free" string'i
+    // dönüyordu; istemci bunu SUNUCU.plan'a yazınca plan.kod undefined kalıyor
+    // ve ödeme yapmış kullanıcı kendine Free görünüyordu.)
+    const kod = await planOku(talep.sub, "free");
+    const p = planGetir(kod);
     res.json({
       ok: true,
-      kullanici: { eposta: talep.email, ad: talep.name, avatar: talep.picture || null, plan: "free" },
+      kullanici: {
+        eposta: talep.email,
+        ad: talep.name,
+        avatar: talep.picture || null,
+        plan: { kod, ad: p.ad, maxToken: p.maxToken },
+      },
     });
   } catch (e) {
     res.status(401).json({ error: "Google doğrulaması başarısız: " + String(e.message || e).slice(0, 160) });
