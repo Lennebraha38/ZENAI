@@ -41,12 +41,44 @@ async function upCmd(...parcalar) {
 export async function planYaz(sub, plan) {
   if (!sub || !depoVar) return false;
   try {
-    if (BLOB_OKUNUR) await yolYaz(yol(sub), { plan, at: new Date().toISOString() });
-    else await upCmd("SET", yol(sub), plan, "EX", 60 * 60 * 24 * 400);
+    if (BLOB_OKUNUR) {
+      await yolYaz(yol(sub), { plan, at: new Date().toISOString() });
+      await yazmaDogrula(sub, plan);
+    } else {
+      await upCmd("SET", yol(sub), plan, "EX", 60 * 60 * 24 * 400);
+    }
     return true;
   } catch {
     return false;
   }
+}
+
+// "Okuduğunu yazdın" garantisi.
+//
+// Depo GEÇİKMELİ (eventually consistent) çalışıyor: put() hemen ardından yapılan
+// okuma hâlâ ESKİ değeri görebiliyor. Doğrudan testlerde bunu gözlemledik —
+// iptal sonrası plan "free" okunmuyordu. Üretimde bunun sonucu ciddi:
+// kullanıcı aboneliğini iptal ediyor, webhook planı "free" yazıyor, ama bir sonraki
+// sayfa yüklemesi bayat okuma ile "gold" görüyor ve sunucu ona ÜCRETLİ özellik
+// vermeye devam ediyor. Bu yüzden yazma, değer gerçekten okunabilir olana kadar
+// kısa bir bekleme ile doğrulanır.
+//
+// Bu yol yalnızca Stripe webhook'u tarafından çağrılır; kullanıcıya dönük
+// isteklerde gecikme yaratmaz.
+async function yazmaDogrula(sub, plan, sureMs = 3000) {
+  const y = yol(sub);
+  const bas = Date.now();
+  while (Date.now() - bas < sureMs) {
+    try {
+      const j = await yolOku(y);
+      if (j?.plan === plan) return true;
+    } catch {
+      /* okunamayan kayıt: yeniden dene */
+    }
+    await new Promise((r) => setTimeout(r, 150));
+  }
+  // Doğrulanamadıysa yine de true: yazma gerçekleşti, yalnızca yayılma yavaş.
+  return false;
 }
 
 // İptal / askıya alma -> planı "free" yaz.

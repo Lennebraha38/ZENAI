@@ -71,13 +71,26 @@ export async function yolYaz(yol, veri) {
 // ve sayaç GERİYE gider (ölçüldü: 1 → 2 → 2 → 5 → 5). Güvenlik sayacı gibi
 // verilerde bunun yerine her olayı ayrı bir anahtara eklemek gerekir: sayı
 // hiçbir zaman azalmaz, yalnızca ileri gider.
+//
+// DİKKAT — benzersizliği SDK'ya BIRAKMIYORUZ. `addRandomSuffix: true` değeri
+// yolun SON NOKTASINDAN ayırıp oraya ekliyor. E-posta gibi "a@b.test" içeren
+// bir yolda son nokta "dizin" adının içinde kalıyor ve rastgele son ek
+// DİZİN ADININ ORTASINA gömülüyor:
+//     istenen : zenai/sayac/kayit/eposta-a_b.test/1700
+//     oluşan  : zenai/sayac/kayit/eposta-a_b-Xy9Z.test/1700
+// Sonuç: list() öneki tutmuyor, sayaç kalıcı olarak 0 görünüyor (bu hata canlı
+// ölçüldü). Bu yüzden son segmenti KENDİMİZ benzersizleştiriyoruz.
 export async function yolEkle(yol, veri) {
   if (!BLOB_OKUNUR) throw new Error("Depo yapılandırılmamış");
   const { put } = await sdkAl();
-  await put(ONEKI + temizle(yol), JSON.stringify(veri), {
+  const benzersiz = crypto.randomUUID().replace(/-/g, "").slice(0, 12);
+  const ayrilmis = String(yol).split("/");
+  const son = ayrilmis.pop() || "olay";
+  ayrilmis.push(`${son}-${benzersiz}`);
+  await put(ONEKI + temizle(ayrilmis.join("/")), JSON.stringify(veri), {
     token: process.env.BLOB_READ_WRITE_TOKEN,
     access: "private",
-    addRandomSuffix: true,
+    allowOverwrite: false,
   });
   return true;
 }

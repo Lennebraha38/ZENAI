@@ -1,6 +1,6 @@
 # ZenAI — Gerçek Kimlik Doğrulama ve Abonelik Kurulumu
 
-Kod tamam ve test edildi (94/94 birim testi). Aşağıdaki ortam değişkenleri
+Kod tamam ve test edildi (105/105 API testi). Aşağıdaki ortam değişkenleri
 Vercel'de tanımlanmadan hesap sistemi ve ödeme **bilinçli olarak kapalı** kalır
 ve arayüz bunu dürüstçe bildirir.
 

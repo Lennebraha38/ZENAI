@@ -64,18 +64,93 @@ export async function sifreDogrula(sifre, kayit) {
 
 const yol = (sub) => `user/${sub}.json`;
 
+// Genel amaçlı, yalnızca-ekleme (append-only) sayaç.
+//
+// Neden ayrı anahtar: depo gecikmeli (eventually consistent) çalışıyor. Aynı
+// kaydı "oku → değiştir → yaz" ile güncellerseniz iki yazma birbirini ezer ve
+// sayı GERİYE gider (ölçüldü: 1 → 2 → 2 → 5 → 5). Her olayı ayrı bir anahtara
+// yazarsak sayaç yalnızca ileri gider ve eşzamanlı istekler birbirini bozamaz.
+//
+// Kayan pencere: eski kayıtlar hiç silinmez, ama pencere dışına düştüğü için
+// sayılmaz. Böylece sayaç kendiliğinden sıfırlanır, kalıcı kilit oluşmaz.
+export async function sayaçOku(onEk, pencereMs, simdi = Date.now()) {
+  const kirp = simdi - pencereMs;
+  const kayitlar = await yolListele(onEk + "/");
+  const icerde = kayitlar.filter((k) => k.zaman > kirp).map((k) => k.zaman);
+  return {
+    sayi: icerde.length,
+    enYeni: icerde.length ? Math.max(...icerde) : 0,
+    kalanDk: Math.max(1, Math.ceil((Math.max(0, ...icerde) + pencereMs - simdi) / 60000)),
+  };
+}
+
+export async function sayaçEkle(onEk, simdi = Date.now()) {
+  await yolEkle(`${onEk}/${simdi}`, { z: simdi });
+}
+
+// Kayıt denemelerinin tutulduğu ön ek. Kayıt da tıpkı giriş gibi sınırlanmazsa
+// birisi script ile sınırsız hesap açıp depoyu doldurabilir (sonsuz büyüme) ve
+// 409 yanıtlarıyla hangi e-postaların kayıtlı olduğunu sayabilir.
+//
+// İKİ AYRI SINIR, FARKLI GEREKÇELERLE:
+// - E-posta başına sıkı: aynı e-postaya yönelik denemeleri ve o e-postanın
+//   kayıtlı olup olmadığını yoklamayı engeller.
+// - IP başına GEVŞEK: gerçek hayatta binlerce kullanıcı tek bir IP'yi paylaşır
+//   (operatör CGNAT'ı, ofis, üniversite, VPN). Sıkı bir IP sınırı birbirini
+//   hiç tanımayan kullanıcıları birbirine kilitlerdi. 20/saat hem toplu
+//   kayıt botunu hem de paylaşılan ağı rahat bırakır.
+// Sayaç anahtarları ASLA ham e-posta veya IP içermez ve nokta içermez:
+// ham veri hem gizlilik sızıntısı, hem de Blob önek listelemesini bozuyor
+// (bkz. blob.js -> yolEkle uyarısı).
+const epostaAnahtar = (eposta) => "eposta-" + subUret(eposta);
+const ipAnahtar = (ip) => "ip-" + String(ip || "?").replace(/[^A-Za-z0-9]/g, "_");
+const kayitDenemeYol = (anahtar) => `sayac/kayit/${anahtar}`;
+const KAYIT_EPOSTA_SN = 5; // tek e-posta için saatte 5 deneme
+const KAYIT_IP_SN = 20; // tek IP için saatte 20 deneme
+const KAYIT_PENCERE_MS = 60 * 60 * 1000;
+
+// Kayan pencerede sınıra ulaşıldıysa { hata, kod } döner, yoksa null.
+export async function kayitSinirKontrolu(anahtar, sinir, simdi = Date.now()) {
+  const s = await sayaçOku(kayitDenemeYol(anahtar), KAYIT_PENCERE_MS, simdi);
+  if (s.sayi >= sinir) {
+    return { hata: `Çok fazla deneme. ${s.kalanDk} dakika sonra tekrar dene.`, kod: 429 };
+  }
+  return null;
+}
+
+export async function kayitDenemeEkle(anahtar, simdi = Date.now()) {
+  try {
+    await sayaçEkle(kayitDenemeYol(anahtar), simdi);
+  } catch (e) {
+    console.error("[hesap] kayıt sayacı yazılamadı:", e?.message);
+  }
+}
+
+// Kayıt öncesi kontrol: hem IP hem e-posta sayacı.
+export async function kayitSiniri(eposta, ip, simdi = Date.now()) {
+  return (
+    (await kayitSinirKontrolu(epostaAnahtar(eposta), KAYIT_EPOSTA_SN, simdi))
+    || (await kayitSinirKontrolu(ipAnahtar(ip), KAYIT_IP_SN, simdi))
+  );
+}
+
+// Denemeyi HER İKİ sayaca da işaretle (geçen de geçmeyen de: yoklamayı engelle).
+export async function kayitDenemeIsle(eposta, ip, simdi = Date.now()) {
+  for (const a of [epostaAnahtar(eposta), ipAnahtar(ip)]) {
+    try {
+      await sayaçEkle(kayitDenemeYol(a), simdi);
+    } catch (e) {
+      console.error("[hesap] kayıt sayacı yazılamadı:", e?.message);
+    }
+  }
+}
+
 // Hatalı giriş denemelerinin tutulduğu ön ek (her deneme ayrı bir anahtar).
 const basarisizYol = (sub) => `user/${sub}/basarisiz`;
 
 // Son KILIT_PENCERE_MS içindeki hatalı deneme sayısı.
 export async function basarisizSay(sub, simdi = Date.now()) {
-  const kirp = simdi - KILIT_PENCERE_MS;
-  const kayitlar = await yolListele(basarisizYol(sub) + "/");
-  const icerde = kayitlar.filter((k) => k.zaman > kirp).map((k) => k.zaman);
-  return {
-    sayi: icerde.length,
-    enYeni: icerde.length ? Math.max(...icerde) : 0,
-  };
+  return sayaçOku(basarisizYol(sub), KILIT_PENCERE_MS, simdi);
 }
 
 export async function kullaniciOkuByEmail(email) {
@@ -141,7 +216,7 @@ export async function girisDene({ email, sifre }, simdi = Date.now()) {
 
   if (!(await sifreDogrula(sifre, kayit))) {
     try {
-      await yolEkle(`${basarisizYol(sub)}/${simdi}`, { z: simdi });
+      await sayaçEkle(basarisizYol(sub), simdi);
     } catch (e) {
       // Sayaç yazılamadıysa kilit devreye giremez; sessizce geçmiyoruz ki
       // depo kesintisi fark edilsin. Yanıt yine 401: kullanıcı varlığını sızdırma.

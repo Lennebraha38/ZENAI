@@ -174,6 +174,11 @@ ok("çerez temizleniyor (Max-Age<0)", /Max-Age=-\d+/.test(res.cireZ.join(";")));
 
 console.log("\n▸ E-posta + şifre hesap sistemi");
 const HE = "test-" + Date.now() + "@zenai.test";
+// Kayıt sayacı IP'ye göre tutuluyor ve depoda KALICI (kayan pencere) yaşıyor.
+// Testler her koşuda aynı sahte IP'yi kullanırsa sayaç birikir ve ikinci koşudan
+// itibaren kayıt testleri kilitlenir. Bu yüzden koşuya özel IP üretiyoruz —
+// gerçekçi de (her ziyaretçinin farklı IP'si var).
+const TEST_IP = "10.99." + (Date.now() % 200) + "." + (1 + Math.floor(Math.random() * 250));
 ok("hesap sistemi depo ile açık", hesapSistemiVar() === true);
 ok("sub üretimi deterministik", subUret(HE) === subUret(HE.toUpperCase()));
 ok("sub e-postayı sızdırmıyor", !subUret(HE).includes("@") && subUret(HE).length === 24);
@@ -189,7 +194,7 @@ ok("tuz rastgele (hash'ler farklı)", k.hash !== k2.hash && k.salt !== k2.salt);
 if (hesapSistemiVar()) {
   // Kayıt
   res = sahteRes();
-  await kayit(req({ email: HE, sifre: "guclu-sifre-1", ad: "Test Kullanici" }, { method: "POST", origin: "http://localhost:8899" }), res);
+  await kayit(req({ email: HE, sifre: "guclu-sifre-1", ad: "Test Kullanici" }, { method: "POST", origin: "http://localhost:8899", headers: { "x-forwarded-for": TEST_IP } }), res);
   ok("kayıt 200", res.kod === 200);
   ok("kayıt oturum çerezi veriyor", /zenai_oturum=/.test(res.cireZ.join(";")));
   ok("kayıt çerezi HttpOnly", /HttpOnly/.test(res.cireZ.join(";")));
@@ -207,7 +212,7 @@ if (hesapSistemiVar()) {
 
   // Aynı e-posta ikinci kez kaydedilemez (ezilmez)
   res = sahteRes();
-  await kayit(req({ email: HE, sifre: "baska-sifre-99" }, { method: "POST", origin: "http://localhost:8899" }), res);
+  await kayit(req({ email: HE, sifre: "baska-sifre-99" }, { method: "POST", origin: "http://localhost:8899", headers: { "x-forwarded-for": TEST_IP } }), res);
   ok("tekrar kayıt engelleniyor", res.kod === 409);
   res = sahteRes();
   await giris(req({ email: HE, sifre: "baska-sifre-99" }, { method: "POST", origin: "http://localhost:8899" }), res);
@@ -223,7 +228,7 @@ if (hesapSistemiVar()) {
     ["tahmin edilebilir şifre 400", { email: HE + "y", sifre: "password" }, 400],
   ]) {
     res = sahteRes();
-    await kayit(req(govde, { method: "POST", origin: "http://localhost:8899" }), res);
+    await kayit(req(govde, { method: "POST", origin: "http://localhost:8899", headers: { "x-forwarded-for": TEST_IP } }), res);
     ok(ad, res.kod === kod);
   }
 
@@ -275,6 +280,28 @@ if (hesapSistemiVar()) {
   ok("başarılı giriş sonGiris damgalıyor", !!sonra.kayit?.sonGiris);
   const kotu = await girisDene({ email: HE, sifre: "dogru-sifre-1" });
   ok("pencere içindeyken doğru şifre hâlâ 429", kotu.kod === 429);
+
+  // KAYIT KORUMASI: aynı e-postaya art arda kayıt denemeleri sınırlanmalı.
+  // (Limit IP'ye degil e-postaya baglanir; IP limiti paylasilan aglar icin
+  //  gevsek tutulur, bkz. hesap.js.)
+  const bombardiman = "bomb-" + Date.now() + "@zenai.test";
+  // Koşuya özel IP: IP sayacı da kalıcıdır, sabit IP kullanırsak koşu biriktikçe
+  // E-POSTA limiti değil IP limiti devreye girer ve test yanlış şeyi ölçer.
+  const BOM_IP = "10.98." + Math.floor(Math.random() * 250) + ".9";
+  let sonKod = 0;
+  for (let i = 0; i < 8; i++) {
+    const r2 = sahteRes();
+    await kayit(req({ email: bombardiman, sifre: "bombardiman-sifre-1" },
+      { method: "POST", origin: "http://localhost:8899", headers: { "x-forwarded-for": BOM_IP } }), r2);
+    sonKod = r2.kod;
+    if (sonKod === 429) break;
+  }
+  ok("ayni e-postaya kayıt denemeleri sınırlanıyor", sonKod === 429);
+  res = sahteRes();
+  await kayit(req({ email: bombardiman, sifre: "bombardiman-sifre-1" },
+    { method: "POST", origin: "http://localhost:8899", headers: { "x-forwarded-for": BOM_IP } }), res);
+  ok("sınırdayken 429 (hesap açılmıyor)", res.kod === 429);
+  ok("429 kalan süreyi bildiriyor", /dakika sonra/.test(res.govde?.error || ""));
 
   // Depoda şifre tuz/hash olarak, düz değil
   const kayitli = await hesapAc({ email: "deneme-" + Date.now() + "@zenai.test", sifre: "deneme-sifre-1" });
