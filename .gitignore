@@ -31,3 +31,4 @@ ornek.db
 tests/*.json-shm
 tests/*.json-wal
 ~/.zenai_bellek.db
+.vercel

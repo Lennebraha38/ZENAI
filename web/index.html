@@ -497,6 +497,9 @@
 
     <p class="giris-hata hidden" id="girisHata" role="alert" aria-live="assertive"></p>
 
+    <div id="auth-react-root"></div>
+    <p class="giris-hata hidden" id="auth-react-error" role="alert" aria-live="assertive"></p>
+
     <div class="giris-izgara hidden" id="girisIzgara">
       <div class="giris-ayirac"><span data-i18n="auth_veya">veya</span></div>
       <div id="girisGoogleKutu" class="giris-google-kutu"></div>
@@ -511,5 +514,13 @@
 </div>
 
 <script src="app.js"></script>
+  <script type="module">
+    import { createRoot } from 'react-dom/client';
+    import React from 'react';
+  </script>
+  <script type="module" src="/react-auth/assets/index-BjyiU9-R.js"></script>
+  <link rel="stylesheet" href="/react-auth/assets/index-C4liw926.css">
+  <script src="/react-auth/mount.js"></script>
+  <script type="module" src="/react-auth/expose.js"></script>
 </body>
 </html>
