@@ -4,9 +4,9 @@
   let tries = 0;
   function mount(){
     tries++;
-    if (typeof React === 'undefined' || typeof ReactDOM === 'undefined') { if (tries<80) setTimeout(mount,30); return; }
+    if (typeof React === 'undefined' || typeof ReactDOM === 'undefined') { if (tries<160) setTimeout(mount,30); return; }
     const mod = window.__reactAuthMod;
-    if (!mod || !mod.SignIn1) { if (tries<80) setTimeout(mount,30); return; }
+    if (!mod || !mod.SignIn1) { if (tries<160) setTimeout(mount,30); return; }
     const e = React.createElement;
     const r = ReactDOM.createRoot(root);
     const googleEnabled = (window.SUNUCU && SUNUCU.googleAktif) || false;
